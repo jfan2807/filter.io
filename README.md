@@ -9,6 +9,8 @@
 ![Species](https://img.shields.io/badge/species%20database-65%20fish%20%26%20inverts-0aa?style=flat-square)
 ![License](https://img.shields.io/badge/license-all%20rights%20reserved-lightgrey?style=flat-square)
 
+**Live app:** https://jfan2807.github.io/filter.io/ — installable as an offline PWA on iPhone, Android and desktop.
+
 ---
 
 ## Overview
