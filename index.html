@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="Interactive aquarium filter media simulator: surface area, nitrification, denitrification, and water chemistry drift calculator.">
+<meta name="theme-color" content="#f6f6f4">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Media Lab">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='12' y='12' width='76' height='76' rx='18' fill='%230f766e'/><circle cx='50' cy='50' r='16' fill='white'/></svg>">
+<title>Aquarium Media Lab</title>
+<style>
+:root{
+  --bg:#f6f6f4; --card:#ffffff; --line:#e6e6e2; --line2:#d4d4cf;
+  --txt:#1f1f1c; --dim:#71716b; --accent:#0f766e; --accent-soft:#e6f2f0;
+  --blue:#2563eb; --amber:#b45309; --rose:#be185d; --violet:#6d28d9; --red:#b91c1c;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--txt);
+  font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  min-height:100vh; padding:22px clamp(14px,3vw,40px) 60px;
+}
+h1{font-size:clamp(19px,2.4vw,25px);font-weight:650;letter-spacing:-.01em;color:var(--txt)}
+.sub{color:var(--dim);font-size:12px;margin-top:1px}
+header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+.rank-chip{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;padding:8px 14px;cursor:help}
+.rank-letter{font-size:26px;font-weight:700;width:44px;height:44px;display:grid;place-items:center;
+  border-radius:10px;border:1.5px solid currentColor;transition:.3s}
+.rank-desc{font-size:12px;color:var(--dim);max-width:230px}
+.grid{display:grid;grid-template-columns:350px 1fr 340px;gap:14px;align-items:start}
+@media(max-width:1180px){.grid{grid-template-columns:1fr 1fr}.col-right{grid-column:1/-1}}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:12px;
+  font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card h2::before{content:"";width:14px;height:3px;border-radius:2px;background:var(--accent);flex:none}
+.hint{color:var(--dim);font-size:10.5px;letter-spacing:0;text-transform:none;font-weight:400}
+/* ---- config ---- */
+.cfg-row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+.cfg-row label{color:var(--dim);font-size:12px}
+.cfg-row output{font-variant-numeric:tabular-nums;color:var(--txt);min-width:84px;text-align:right;font-size:12.5px;font-weight:550}
+.cfg-block{margin-bottom:12px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:2px;
+  background:linear-gradient(90deg,var(--accent) var(--fill,50%),var(--line) var(--fill,50%));outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+  background:#fff;border:1.5px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.12);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#fff;border:1.5px solid var(--accent);cursor:pointer}
+input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+input[type=range].tap{background:linear-gradient(90deg,var(--amber) var(--fill,50%),var(--line) var(--fill,50%))}
+input[type=range].tap::-webkit-slider-thumb{border-color:var(--amber)}
+input[type=range].tap::-moz-range-thumb{border-color:var(--amber)}
+select,button.btn{background:#fff;color:var(--txt);border:1px solid var(--line2);border-radius:8px;
+  padding:6px 10px;font:inherit;font-size:12px;cursor:pointer}
+button.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btnrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center}
+.sect-lab{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600;
+  margin:14px 0 10px;border-top:1px solid var(--line);padding-top:12px}
+.sect-lab:first-child{margin-top:0;border:none;padding-top:0}
+/* ---- slots ---- */
+.alloc-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--line);margin-bottom:12px}
+.alloc-bar>span{height:100%;transition:width .3s;min-width:0}
+.slot{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;min-height:52px;
+  display:flex;flex-direction:column;gap:6px;background:#fcfcfb}
+.slot.empty{justify-content:center;align-items:center;color:#b6b6b0;font-size:11px;letter-spacing:.1em;border-style:dashed;background:transparent}
+.slot.pickonly{border-style:dashed;background:transparent;min-height:44px;justify-content:center}
+.slot .pick{border:1px solid transparent;border-radius:6px;background:transparent;font:inherit;font-weight:600;
+  font-size:13px;color:var(--txt);padding:2px 4px;max-width:230px;cursor:pointer}
+.slot .pick:hover,.slot .pick:focus{border-color:var(--line2);outline:none;background:#fff}
+.slot.pickonly .pick{color:var(--dim);font-weight:500}
+.slot-head .ctl button.inf{font-style:italic;font-family:Georgia,serif}
+.slot-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.slot-head .nm{font-weight:600;font-size:13px;display:flex;align-items:center;gap:7px}
+.slot-head .dot{width:9px;height:9px;border-radius:3px;display:inline-block}
+.slot-head .ctl{display:flex;gap:4px}
+.slot-head .ctl button{background:none;border:1px solid transparent;border-radius:6px;color:var(--dim);
+  cursor:pointer;font:inherit;font-size:10.5px;padding:2px 7px}
+.slot-head .ctl button:hover{border-color:var(--line2);color:var(--txt)}
+.slot-head .ctl button.rm{color:var(--red)}
+.slot-head .ctl button.lk.on{color:var(--amber);border-color:var(--amber)}
+.slot-vol{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--dim)}
+.slot-vol output{font-variant-numeric:tabular-nums;color:var(--txt);min-width:110px;text-align:right;font-weight:550}
+/* ---- meters ---- */
+.meter{margin-bottom:12px}
+.meter .lab{display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);margin-bottom:4px}
+.meter .lab b{color:var(--txt);font-variant-numeric:tabular-nums;font-weight:600}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;position:relative}
+.bar>i{display:block;height:100%;border-radius:3px;width:0;transition:width .5s cubic-bezier(.2,.8,.2,1);
+  background:var(--c1,var(--accent))}
+.bar .mark{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--txt);opacity:.55}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.stat{background:#fcfcfb;border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+.stat .v{font-variant-numeric:tabular-nums;font-size:17px;color:var(--txt);font-weight:650}
+.stat .k{font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-top:1px}
+/* ---- badges ---- */
+#badges{display:flex;flex-wrap:wrap;gap:6px;min-height:24px;margin-bottom:12px}
+.badge{font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid;font-weight:550}
+.badge.good{color:#0f766e;border-color:#b9dcd7;background:#e6f2f0}
+.badge.warn{color:#b45309;border-color:#ecd3ae;background:#fdf3e2}
+.badge.bad{color:#b91c1c;border-color:#eecaca;background:#fbeaea}
+.badge.mag{color:#be185d;border-color:#f0c4d8;background:#fdeef5}
+/* ---- chart / canvas ---- */
+canvas{width:100%;border-radius:10px;display:block}
+#tank{background:#fcfcfb;border:1px solid var(--line)}
+#phchart{background:#fcfcfb;border:1px solid var(--line)}
+.legend{display:flex;gap:14px;font-size:11px;color:var(--dim);margin-top:8px;flex-wrap:wrap}
+.legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+/* ---- modal ---- */
+#modal{position:fixed;inset:0;background:rgba(30,30,28,.35);display:none;place-items:center;z-index:50;padding:18px}
+#modal.open{display:grid}
+.sci-card{max-width:560px;width:100%;max-height:86vh;overflow:auto;background:#fff;
+  border:1px solid var(--line);border-radius:14px;padding:24px;box-shadow:0 16px 48px rgba(0,0,0,.14)}
+.sci-card h3{font-size:19px;color:var(--txt);font-weight:650}
+.sci-card .cls{float:right;background:#fff;border:1px solid var(--line2);color:var(--dim);border-radius:8px;
+  padding:3px 10px;cursor:pointer;font:inherit;font-size:12px}
+.sci-card table{width:100%;border-collapse:collapse;margin:12px 0;font-size:12.5px}
+.sci-card td,.sci-card th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
+.sci-card td:first-child{color:var(--dim);width:52%}
+.sci-card td:last-child{font-variant-numeric:tabular-nums;color:var(--txt);font-weight:550}
+.sci-card p{font-size:13px;color:#44443f;margin:8px 0}
+.sci-card .sec{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-top:16px}
+/* ---- nitrogen cycle flow ---- */
+.ncycle{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap;margin:2px 0 12px}
+.nstep{flex:1;min-width:86px;background:#fcfcfb;border:1px solid var(--line);border-radius:8px;
+  padding:6px 8px;text-align:center;position:relative}
+.nstep .nv{font-variant-numeric:tabular-nums;font-weight:650;font-size:13px}
+.nstep .nk{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-top:1px}
+.nstep .nsub{font-size:9.5px;color:var(--dim)}
+.nstep.final{border-width:1.5px}
+.nstep.okf{border-color:#b9dcd7;background:#f2faf8}.nstep.okf .nv{color:#0f766e}
+.nstep.warnf{border-color:#ecd3ae;background:#fdf8ee}.nstep.warnf .nv{color:#b45309}
+.nstep.badf{border-color:#eecaca;background:#fdf1f1}.nstep.badf .nv{color:#b91c1c}
+.narr{align-self:center;color:#b6b6b0;font-size:13px;flex:none}
+/* ---- fish pH-fit bar ---- */
+.phbar{position:relative;display:block;height:5px;border-radius:3px;background:var(--line);margin-top:6px;margin-bottom:2px;width:100%;max-width:230px}
+.phbar i{position:absolute;top:0;bottom:0;border-radius:3px;background:#c7dedb}
+.phbar u{position:absolute;top:-2.5px;width:2px;height:10px;border-radius:1px;background:var(--txt)}
+.fish .fbody{flex:1;min-width:0}
+/* ---- advisor tracks ---- */
+.adv-track{margin-bottom:10px}
+.adv-track .atl{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:3px}
+.adv-track .atl b{color:var(--txt);font-variant-numeric:tabular-nums}
+.atbar{position:relative;height:5px;border-radius:3px;background:var(--line)}
+.atbar .cur{position:absolute;top:-3.5px;width:12px;height:12px;border-radius:50%;background:var(--accent);
+  transform:translateX(-50%);border:2px solid #fff;box-shadow:0 0 0 1px var(--line2)}
+.atbar .tgt{position:absolute;top:-3.5px;width:12px;height:12px;border-radius:50%;background:transparent;
+  transform:translateX(-50%);border:2px solid var(--amber)}
+.atbar .span{position:absolute;top:0;bottom:0;background:#e9d9c2;border-radius:3px}
+details.adv{border-top:1px solid var(--line);margin-top:12px;padding-top:4px}
+details.adv summary{cursor:pointer;list-style:none;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);font-weight:600;padding:8px 0;user-select:none;display:flex;align-items:center;gap:6px}
+details.adv summary::-webkit-details-marker{display:none}
+details.adv summary::after{content:"+";margin-left:auto;font-size:14px;color:var(--dim);font-weight:400}
+details.adv[open] summary::after{content:"\2212"}
+details.adv summary:hover{color:var(--accent)}
+details.adv>*:not(summary){margin-top:4px}
+.plain{font-size:13.5px;line-height:1.6;color:var(--txt);margin-bottom:12px}
+.plain b{font-variant-numeric:tabular-nums}
+.plain .pgood{color:#0f766e;font-weight:650}.plain .pwarn{color:#b45309;font-weight:650}.plain .pbad{color:#b91c1c;font-weight:650}
+.qstart{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.qstart .hint{margin-right:2px}
+.footer-note{margin-top:20px;font-size:11px;color:var(--dim);text-align:center}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--txt);
+  color:#fff;border-radius:8px;padding:9px 18px;font-size:12px;transition:transform .3s;z-index:60}
+#toast.show{transform:translateX(-50%) translateY(0)}
+/* ---- install button & tab bar ---- */
+#btnInstall{background:#fff;border:1px solid var(--line2);color:var(--txt);border-radius:9px;
+  padding:7px 13px;font:inherit;font-size:12px;font-weight:550;cursor:pointer;display:none}
+#btnInstall.show{display:inline-flex}
+#btnInstall:hover{border-color:var(--accent);color:var(--accent)}
+#tabbar{display:none;position:fixed;left:0;right:0;bottom:0;z-index:40;
+  background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-top:1px solid var(--line);
+  padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
+#tabbar button{flex:1;background:none;border:none;color:var(--dim);font:inherit;font-size:12px;
+  font-weight:550;cursor:pointer;padding:8px 0;border-radius:8px}
+#tabbar button.on{color:var(--accent);background:var(--accent-soft)}
+/* ================= MOBILE ================= */
+@media(max-width:760px){
+  body{padding:12px 14px calc(80px + env(safe-area-inset-bottom));
+    padding-top:calc(12px + env(safe-area-inset-top))}
+  header{margin-bottom:10px;align-items:center}
+  h1{font-size:17px}
+  .sub{display:none}
+  .rank-chip{padding:5px 10px;gap:8px}
+  .rank-letter{font-size:18px;width:32px;height:32px;border-radius:8px}
+  .rank-desc{display:none}
+  .rank-chip>div>div:first-child{font-size:9px}
+  #tabbar{display:flex}
+  #app{display:flex;flex-direction:column;gap:10px}
+  .grid,.grid2,.col-left,.col-mid,.col-right{display:contents}
+  [data-mtab="stack"]{order:1}
+  [data-mtab="output"]{order:2}
+  [data-mtab="life"]{order:3}
+  [data-mtab="config"]{order:4}
+  .card{padding:13px;margin-bottom:0 !important;scroll-margin-top:10px}
+  .footer-note{display:none}
+  #tank{height:150px}
+  .cfg-block{margin-bottom:9px}
+  .stats{gap:6px;grid-template-columns:repeat(3,1fr);margin-bottom:10px}
+  .stat{padding:7px 8px}
+  .stat .v{font-size:14px}
+  .stat .k{font-size:8.5px;letter-spacing:.03em}
+  .slot{padding:8px 10px;margin-bottom:6px;min-height:40px}
+  .slot.empty{display:none}
+  .sect-lab{margin:10px 0 8px;padding-top:10px}
+  .meter{margin-bottom:9px}
+  .meter .lab{font-size:10.5px;margin-bottom:2px}
+  #badges{min-height:0;margin-bottom:8px}
+  .legend{gap:8px;font-size:10px;margin-top:4px}
+  .card h2{margin-bottom:9px}
+  #exhaustLine{min-height:0;font-size:10.5px}
+  #phSummary{font-size:11px !important;line-height:1.4 !important;margin-top:5px !important}
+  .badge{font-size:10px;padding:2px 8px}
+  .btnrow .preset{padding:5px 8px;font-size:11px}
+}
+/* ---- livestock & advisor ---- */
+.grid2{display:grid;grid-template-columns:1.2fr 1fr;gap:14px;margin-top:14px;align-items:start}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+.fish-tools{display:flex;gap:6px;margin-bottom:10px}
+.fish-tools input{flex:1;background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--txt);
+  padding:5px 9px;font:inherit;font-size:12px;min-width:0}
+.fish-tools input:focus{outline:none;border-color:var(--accent)}
+.fish-list{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow-y:auto;padding-right:4px}
+.fish{display:flex;align-items:center;gap:10px;background:#fcfcfb;border:1px solid var(--line);
+  border-radius:9px;padding:8px 12px;font-size:12.5px}
+.fish .fn{font-weight:600}
+.fish .fd{font-size:11px;color:var(--dim)}
+.fish .match{margin-left:auto;flex:none;font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+  padding:2px 8px;border-radius:5px;border:1px solid;font-weight:600}
+.match.perfect{color:#0f766e;border-color:#b9dcd7;background:#e6f2f0}
+.match.good{color:#2563eb;border-color:#c3d4f7;background:#e9effc}
+.match.stretch{color:#b45309;border-color:#ecd3ae;background:#fdf3e2}
+.fish-empty{color:var(--dim);font-size:12px;padding:14px;text-align:center}
+.fish-summary{font-size:11.5px;color:var(--dim);margin-bottom:10px}
+.fish-summary b{color:var(--txt);font-variant-numeric:tabular-nums}
+.advice{list-style:none;display:flex;flex-direction:column;gap:8px}
+.advice li{background:#fcfcfb;border:1px solid var(--line);border-left:3px solid var(--blue);
+  border-radius:0 8px 8px 0;padding:9px 12px;font-size:12.5px}
+.advice li.raise{border-left-color:var(--amber)}
+.advice li.lower{border-left-color:var(--violet)}
+.advice li.ok{border-left-color:var(--accent);color:#0f5f58}
+.advice li.warn2{border-left-color:var(--red)}
+.advice b{color:var(--txt);font-variant-numeric:tabular-nums;font-weight:650}
+.advice .why{display:block;font-size:11px;color:var(--dim);margin-top:2px}
+@media(max-width:760px){
+  .grid2{display:contents}
+  .fish-list{max-height:none}
+  .fish{padding:5px 10px;font-size:11.5px}
+  .fish .fd{font-size:10px}
+  .fish-summary{font-size:10.5px;margin-bottom:6px}
+  .advice{gap:5px}
+  .advice li{padding:6px 10px;font-size:11.5px}
+  .grid2 .cfg-block{margin-bottom:6px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Aquarium Media Lab</h1>
+    <div class="sub">Bio-Calculator // Filter Stack Simulator v2.0</div>
+  </div>
+  <button id="btnInstall" title="Install this app on your device">Add to Home Screen</button>
+  <div class="rank-chip" id="rankChip" title="">
+    <div class="rank-letter" id="rankLetter">–</div>
+    <div><div style="font-size:11px;letter-spacing:.2em;color:var(--dim)">FILTER RATING</div>
+    <div class="rank-desc" id="rankDesc">Add media to your stack to begin simulation.</div></div>
+  </div>
+</header>
+
+<div id="app">
+<div class="grid">
+
+  <!-- LEFT: system config + media library -->
+  <div class="col-left">
+    <div class="card" data-mtab="config" style="margin-bottom:16px">
+      <h2>Your Tank &amp; Water</h2>
+      <div class="cfg-block"><div class="cfg-row"><label for="tankVol">Tank Volume</label><output id="oTank"></output></div>
+        <input type="range" id="tankVol" min="20" max="500" value="200" step="10" aria-label="Tank volume"></div>
+      <div class="cfg-block"><div class="cfg-row"><label for="flow">Flow Rate</label><output id="oFlow"></output></div>
+        <input type="range" id="flow" min="100" max="5000" value="800" step="50" aria-label="Flow rate"></div>
+
+      <div class="sect-lab">Your Tap Water</div>
+      <div class="cfg-block"><div class="cfg-row"><label for="tapPH">Tap pH</label><output id="oTapPH"></output></div>
+        <input type="range" id="tapPH" class="tap" min="5.5" max="9.0" value="7.4" step="0.1" aria-label="Tap water pH"></div>
+      <div class="cfg-block"><div class="cfg-row"><label for="tapKH">Tap KH (carbonate)</label><output id="oTapKH"></output></div>
+        <input type="range" id="tapKH" class="tap" min="0" max="20" value="5" step="0.5" aria-label="Tap water KH"></div>
+      <div class="cfg-block"><div class="cfg-row"><label for="tapGH">Tap GH (general)</label><output id="oTapGH"></output></div>
+        <input type="range" id="tapGH" class="tap" min="0" max="25" value="8" step="0.5" aria-label="Tap water GH"></div>
+      <div class="cfg-block"><div class="cfg-row"><label for="wc">Weekly Water Change</label><output id="oWC"></output></div>
+        <input type="range" id="wc" class="tap" min="0" max="80" value="25" step="5" aria-label="Weekly water change percent"></div>
+
+      <details class="adv"><summary>Advanced settings</summary>
+      <div class="cfg-block"><div class="cfg-row"><label for="temp">Water Temperature</label><output id="oTemp"></output></div>
+        <input type="range" id="temp" min="16" max="32" value="26" step="0.5" aria-label="Water temperature"></div>
+      <div class="cfg-row"><label for="stocking">Stocking Level</label>
+        <select id="stocking" aria-label="Stocking level">
+          <option value="0.0012">Light</option>
+          <option value="0.0025" selected>Moderate</option>
+          <option value="0.005">Heavy</option>
+        </select></div>
+      <div class="cfg-row"><label for="units">Units</label>
+        <select id="units" aria-label="Unit system"><option value="metric">Metric (L / m²)</option><option value="imperial">Imperial (gal / ft²)</option></select></div>
+      <div class="btnrow">
+        <button class="btn" id="btnCopy" title="Copy build as JSON">Copy Build</button>
+        <button class="btn" id="btnReset" title="Clear stack and restore defaults">Reset</button>
+      </div>
+      </details>
+    </div>
+
+  </div>
+
+  <!-- CENTER: stack + visualizer -->
+  <div class="col-mid">
+    <div class="card" data-mtab="stack" style="margin-bottom:16px">
+      <h2>Build Your Filter <span id="slotCount" class="hint"></span></h2>
+      <div class="qstart"><span class="hint">Quick start:</span>
+        <button class="btn preset" data-p="community">Community</button>
+        <button class="btn preset" data-p="blackwater">Blackwater</button>
+        <button class="btn preset" data-p="cichlid">Rift Cichlid</button>
+        <button class="btn preset" data-p="lownitrate">Low-Nitrate</button>
+      </div>
+      <div class="cfg-block"><div class="cfg-row"><label for="filterVol">Filter size (how much media fits)</label><output id="oFilter"></output></div>
+        <input type="range" id="filterVol" min="0.5" max="40" value="6" step="0.5" aria-label="Filter media capacity"></div>
+      <div class="alloc-bar" id="allocBar" title="Filter capacity allocation"></div>
+      <div id="slots"></div>
+      <div class="btnrow">
+        <button class="btn" id="btnEven" title="Distribute all unlocked media evenly">Even Split</button>
+        <span class="hint" style="align-self:center">Shares always total 100% of your filter.</span>
+      </div>
+    </div>
+    <div class="card" data-mtab="stack">
+      <h2>Inside Your Filter</h2>
+      <canvas id="tank" height="230"></canvas>
+      <div class="legend">
+        <span><i id="legAer"></i>Nitrifier colonies (aerobic)</span>
+        <span><i id="legAnox"></i>Anoxic zones (denitrifying)</span>
+        <span><i id="legFlow"></i>Water flow</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: results -->
+  <div class="col-right">
+    <div class="card" data-mtab="output" style="margin-bottom:16px">
+      <h2>Results</h2>
+      <p class="plain" id="plainSum">Pick media on the left to see what your filter can do.</p>
+      <div id="badges" aria-live="polite"></div>
+      <div class="ncycle" id="ncycle" aria-label="Nitrogen cycle mass flow"></div>
+      <details class="adv"><summary>All metrics</summary>
+      <div class="stats">
+        <div class="stat"><div class="v" id="sSSA">0</div><div class="k" id="kSSA">Effective bio-area (m²)</div></div>
+        <div class="stat"><div class="v" id="sAmm">0</div><div class="k">NH₃ capacity (g/day)</div></div>
+        <div class="stat"><div class="v" id="sFish">0</div><div class="k" id="kFish">Fish supported (inches)</div></div>
+        <div class="stat"><div class="v" id="sTurn">0×</div><div class="k">Tank turnover /hr</div></div>
+        <div class="stat"><div class="v" id="sContact">0s</div><div class="k">Filter contact time</div></div>
+        <div class="stat"><div class="v" id="sDemand">0</div><div class="k">Stock NH₃ demand (g/day)</div></div>
+        <div class="stat"><div class="v" id="sCycle">-</div><div class="k">Est. cycle time (fishless)</div></div>
+        <div class="stat"><div class="v" id="sNO3ss">-</div><div class="k" id="kNO3ss">Steady-state nitrate (ppm)</div></div>
+      </div>
+      <div class="meter"><div class="lab"><span>Bio-Capacity vs Demand <span class="hint">(marker = tank demand)</span></span><b id="mBioV">0%</b></div>
+        <div class="bar"><i id="mBio" style="--c1:#0f766e"></i><span class="mark" id="mBioMark" style="left:50%"></span></div></div>
+      <div class="meter"><div class="lab"><span>Nitrate Removal Efficiency</span><b id="mNO3V">0%</b></div>
+        <div class="bar"><i id="mNO3" style="--c1:#0f766e"></i></div></div>
+      <div class="meter"><div class="lab"><span>Chemical Stability</span><b id="mStabV">0%</b></div>
+        <div class="bar"><i id="mStab" style="--c1:#0f766e"></i></div></div>
+      <div class="meter"><div class="lab"><span>Flow Match (aerobic sweet spot 4–8×)</span><b id="mFlowV">0%</b></div>
+        <div class="bar"><i id="mFlow" style="--c1:#0f766e"></i></div></div>
+      <div id="exhaustLine" style="font-size:11.5px;color:var(--amber);min-height:16px"></div>
+      </details>
+    </div>
+    <div class="card" data-mtab="output">
+      <h2>Your Water Over 30 Days</h2>
+      <canvas id="phchart" height="190"></canvas>
+      <div class="legend">
+        <span><i style="background:#2563eb"></i>pH</span>
+        <span><i style="background:#b45309"></i>KH dKH</span>
+        <span><i style="background:#be185d"></i>GH dGH</span>
+        <span><i style="background:#c9c9c4"></i>tap baseline</span>
+      </div>
+      <div id="phSummary" style="font-size:12px;color:var(--dim);margin-top:8px"></div>
+    </div>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="card" data-mtab="life">
+    <h2>Fish That Fit Your Tank <span class="hint">(matched to your tank size and water)</span></h2>
+    <div class="fish-tools">
+      <input id="fishSearch" type="search" placeholder="Search species..." aria-label="Search species">
+      <select id="fishCat" aria-label="Filter by category">
+        <option value="">All types</option>
+        <option value="schooler">Schoolers</option>
+        <option value="bottom">Bottom dwellers</option>
+        <option value="center">Centerpiece</option>
+        <option value="invert">Invertebrates</option>
+      </select>
+    </div>
+    <div class="fish-summary" id="fishSummary"></div>
+    <div class="fish-list" id="fishList" aria-live="polite"></div>
+  </div>
+  <div class="card" data-mtab="life">
+    <h2>Water Goals <span class="hint">(set a target - get simple steps to reach it)</span></h2>
+    <div class="cfg-block"><div class="cfg-row"><label for="tgtPH">Target pH</label><output id="oTgtPH"></output></div>
+      <input type="range" id="tgtPH" min="5.5" max="9.0" value="7.4" step="0.1" aria-label="Target pH"></div>
+    <div class="cfg-block"><div class="cfg-row"><label for="tgtKH">Target KH</label><output id="oTgtKH"></output></div>
+      <input type="range" id="tgtKH" min="0" max="20" value="5" step="0.5" aria-label="Target KH"></div>
+    <div class="cfg-block"><div class="cfg-row"><label for="tgtGH">Target GH</label><output id="oTgtGH"></output></div>
+      <input type="range" id="tgtGH" min="0" max="25" value="8" step="0.5" aria-label="Target GH"></div>
+    <div id="advTracks"></div>
+    <ul class="advice" id="advice"></ul>
+  </div>
+</div>
+
+<div class="footer-note">All figures are literature-derived engineering estimates for simulation purposes — verify against your own water tests. Single self-contained file, no external dependencies.</div>
+</div><!-- /#app -->
+
+<nav id="tabbar" aria-label="Jump to section">
+  <button data-t="stack">Filter</button>
+  <button data-t="output">Results</button>
+  <button data-t="life">Fish</button>
+  <button data-t="config">Setup</button>
+</nav>
+
+<div id="modal" role="dialog" aria-modal="true"><div class="sci-card" id="sciCard"></div></div>
+<div id="toast" role="status"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   SCIENTIFIC DATA — literature-derived per-litre media specs
+   ssaTotal : total specific surface area, m²/L (incl. micropores)
+   ssaBio   : effective bacteria-accessible surface area, m²/L. Bacteria
+              (1–5 µm) cannot enter micropores <~0.1 µm, so activated
+              carbon's huge BET area is nearly all bio-inaccessible.
+   nitRate  : g NH3-N oxidized per m² of colonized biofilm per day at 26°C.
+   anoxic   : 0–1 fraction of internal pore volume that goes anoxic at
+              normal flow (deep-pore denitrification potential).
+   phShift/khShift/ghShift : equilibrium drift per (L media / 100 L water)
+              over 30 days, before KH damping and water-change dilution.
+   exhaustDays : working life of consumable chemical media.
+   ===================================================================== */
+const MEDIA = [
+ {id:"matrix", name:"Seachem Matrix", tag:"bio", color:"#0f766e", real:"#c9bfa9", shape:"stones",
+  ssaTotal:700, ssaBio:340, nitRate:0.55, anoxic:0.55, phShift:0, khShift:0, ghShift:0,
+  blurb:"Naturally mined pumice sold as bio-media. Seachem claims ~700 m²/L; independent BET tests attribute much of that to macro/meso-pores, giving an unusually high bacteria-accessible fraction (~340 m²/L effective). Pore depth >4 mm creates oxygen-depleted cores where facultative bacteria respire nitrate (heterotrophic denitrification), provided flow through the media stays laminar.",
+  cite:"Pumice SSA 200–800 m²/L (BET); MBBR nitrification 0.4–1.2 g NH₃-N/m²/d (Rusten et al. 2006)."},
+ {id:"ceramic", name:"Ceramic Rings", tag:"bio", color:"#a8a29e", real:"#eae6de", shape:"rings",
+  ssaTotal:250, ssaBio:120, nitRate:0.45, anoxic:0.25, phShift:0, khShift:0, ghShift:0,
+  blurb:"Sintered aluminosilicate rings. The through-hole splits flow and resists clogging; total SSA ~200–300 m²/L but only meso/macro-pores (>1 µm) host bacteria, so effective area is roughly half. Thin walls mean limited anoxic core — modest denitrification only when biofilm matures and partially occludes pores.",
+  cite:"Sintered ceramic BET 150–300 m²/L; pore-size cutoff for bacterial ingress ~0.5–1 µm."},
+ {id:"k1", name:"Fluidized K1 Media", tag:"bio", color:"#0284c7", fluidized:true, real:"#dfe3e8", shape:"wheels",
+  ssaTotal:0.85, ssaBio:0.8, nitRate:1.1, anoxic:0.0, phShift:0, khShift:0, ghShift:0,
+  blurb:"Kaldnes K1 HDPE wheels used in moving-bed reactors (MBBR). Protected internal surface is only ~500–850 m²/m³ (0.5–0.85 m²/L) — tiny versus porous rock — but constant tumbling self-cleans biofilm to its most active thin layer and eliminates diffusion limits, so per-m² nitrification is the highest of any media (~1.0–1.2 g NH₃-N/m²/d). Fully aerobic: zero denitrification. Needs an air pump or strong flow to stay fluidized.",
+  cite:"AnoxKaldnes K1 protected SSA 500 m²/m³; Rusten et al. (2006) Water Sci. Technol., MBBR design loads."},
+ {id:"coral", name:"Crushed Coral", tag:"buffer", color:"#b45309", real:"#e9dfc8", shape:"chips",
+  ssaTotal:1.2, ssaBio:0.9, nitRate:0.35, anoxic:0.0, phShift:+0.45, khShift:+3.5, ghShift:+2.5,
+  blurb:"Aragonite (CaCO₃) skeletal fragments. Dissolves when pH < ~7.6, releasing Ca²⁺ and CO₃²⁻ — raising KH, GH, and pH toward an equilibrium near 7.8–8.2. Dissolution is self-limiting: as pH rises, solubility falls. Negligible bio-area; used as a chemical buffer, not a bio-filter.",
+  cite:"Aragonite solubility product pKsp ≈ 8.34; dissolution effectively ceases above pH ~7.6–8.0."},
+ {id:"peat", name:"Peat Moss", tag:"chem", color:"#92400e", exhaustDays:45, real:"#6f4e2f", shape:"fibers",
+  ssaTotal:2, ssaBio:1, nitRate:0.2, anoxic:0.1, phShift:-0.8, khShift:-2.5, ghShift:-2.0,
+  blurb:"Sphagnum peat releases humic and tannic acids and cation-exchanges Ca²⁺/Mg²⁺ for H⁺ — simultaneously softening water (GH down) and consuming carbonate buffer (KH down), letting pH fall. Effect strength decays over 4–8 weeks as exchange sites saturate. In low-KH water the pH drop can be steep and unstable.",
+  cite:"Peat CEC 100–200 meq/100 g; humic acid pKa ~4–5; blackwater habitat pH 4.5–6.5."},
+ {id:"lava", name:"Lava Rock", tag:"bio", color:"#c2410c", real:"#8d4a3b", shape:"stones",
+  ssaTotal:150, ssaBio:80, nitRate:0.4, anoxic:0.35, phShift:0, khShift:0, ghShift:0,
+  blurb:"Vesicular basalt scoria. Gas-bubble vesicles (0.1–5 mm) give ~100–300 m²/L total with good bacterial access. Deeper vesicle networks go anoxic under biofilm, giving real (if modest) denitrification. Cheap, inert, dense — the budget Matrix.",
+  cite:"Scoria porosity 40–70%; vesicle-scale pores fully colonizable by 1–5 µm bacteria."},
+ {id:"pumice", name:"Pumice", tag:"bio", color:"#94a3b8", real:"#cfd2cb", shape:"stones",
+  ssaTotal:600, ssaBio:300, nitRate:0.5, anoxic:0.5, phShift:0, khShift:0, ghShift:0,
+  blurb:"Highly vesicular volcanic glass (the raw material behind several branded bio-medias). Interconnected pore network, 60–85% porosity. Interior pores beyond ~2–4 mm depth run at <0.5 mg/L O₂ once biofilm establishes — classic anoxic denitrification territory.",
+  cite:"Pumice BET 5–50 m²/g; bulk density ~0.35 kg/L → hundreds of m² per litre."},
+ {id:"carbon", name:"Activated Carbon", tag:"chem", color:"#334155", exhaustDays:21, real:"#2e2e2e", shape:"granules",
+  ssaTotal:250000, ssaBio:8, nitRate:0.3, anoxic:0.0, phShift:0, khShift:0, ghShift:0,
+  blurb:"The SSA paradox: BET area is 500–1500 m²/g (≈250,000+ m²/L!) but >95% sits in micropores <2 nm — a thousand times smaller than a bacterium. Bio-effective area is a trivial ~8 m²/L. Its real job is physical adsorption of tannins, medications and DOC, which exhausts in ~2–4 weeks. Not a buffer, not a bio-media.",
+  cite:"BET 500–1500 m²/g; micropore cutoff <2 nm vs bacterial cell 1000–5000 nm; typical exhaustion 14–30 d."},
+ {id:"marinepure", name:"MarinePure Block", tag:"bio", color:"#78716c", real:"#f1efe7", shape:"block",
+  ssaTotal:2200, ssaBio:900, nitRate:0.5, anoxic:0.7, phShift:0, khShift:0, ghShift:0,
+  blurb:"Sintered ceramic foam with 'thin bio-film technology': open interconnected pores at ~80% porosity. Manufacturer rates ~2,200 m²/L (~270 ft²/in³ for the block). Its headline feature is deliberate deep-core anoxia — the block interior is engineered to host denitrifiers, and hobby/vendor testing shows measurable nitrate drawdown in mature systems.",
+  cite:"CerMedia spec ~270 ft²/in³; open-cell interconnected porosity ~80%."},
+ {id:"poly", name:"Poly-Filter Pad", tag:"chem", color:"#2563eb", exhaustDays:30, real:"#5b83c4", shape:"pad",
+  ssaTotal:4, ssaBio:2, nitRate:0.3, anoxic:0.0, phShift:0, khShift:0, ghShift:0,
+  blurb:"Bonded polymer pad that chemisorbs heavy metals, ammonia spikes and organics, changing colour as it loads (blue = copper, etc.). Essentially zero bio-capacity and no pH/hardness effect. A diagnostic/emergency chemical media, not a colonization substrate.",
+  cite:"Poly-Bio-Marine spec sheets: chemisorption pad, colour-indicating, finite capacity."},
+ {id:"bioball", name:"Bio-Balls", tag:"bio", color:"#6d28d9", real:"#4d5a9e", shape:"balls",
+  ssaTotal:0.6, ssaBio:0.55, nitRate:0.8, anoxic:0.0, phShift:0, khShift:0, ghShift:0,
+  blurb:"Open plastic spheres designed for wet/dry trickle towers. SSA is tiny (~200–600 m²/m³) but in emersed trickle use, oxygen is unlimited so per-area nitrification is strong. Submerged, they're mediocre. Zero anaerobic capacity — famously 'nitrate factories' because they nitrify without denitrifying.",
+  cite:"Trickle-filter packing SSA 100–600 m²/m³; wet/dry O₂ transfer advantage."},
+ {id:"sponge", name:"Foam / Sponge (30 PPI)", tag:"mech", color:"#ca8a04", real:"#d8b83f", shape:"sponge",
+  ssaTotal:1.8, ssaBio:1.4, nitRate:0.6, anoxic:0.05, phShift:0, khShift:0, ghShift:0,
+  blurb:"Reticulated polyurethane foam. 30 PPI gives ~1,000–2,000 m²/m³ of strut surface, all bacteria-accessible, plus mechanical straining. Detritus capture feeds heterotrophs that compete with nitrifiers, so per-area rates fall as it clogs. Effectively aerobic-only.",
+  cite:"Reticulated foam SSA ≈ 660 × PPI m²/m³ strut area (approx.); mechanical + bio dual role."}
+];
+const TAGNAMES = {bio:"Biological",chem:"Chemical",buffer:"pH Buffer",mech:"Mechanical"};
+
+/* =====================================================================
+   FRESHWATER SPECIES DATABASE — hobby-standard care ranges
+   minL: minimum tank litres · ph/gh/t: tolerated ranges ·
+   sz: adult inches · school: sensible minimum group ·
+   ===================================================================== */
+const FISH = [
+ {n:"Neon Tetra",cat:"schooler",minL:45,ph:[5.5,7.5],gh:[1,10],t:[21,27],sz:1.5,school:6,note:"Soft-water shoaler; classic blackwater species."},
+ {n:"Cardinal Tetra",cat:"schooler",minL:60,ph:[4.5,7.0],gh:[1,8],t:[24,29],sz:2,school:6,note:"Warmer and softer than neons; loves tannins."},
+ {n:"Ember Tetra",cat:"schooler",minL:38,ph:[5.5,7.0],gh:[1,10],t:[23,28],sz:0.8,school:8,note:"Nano-tank shoaler for soft acidic water."},
+ {n:"Betta (Siamese Fighter)",cat:"center",minL:20,ph:[6.0,7.5],gh:[2,12],t:[24,28],sz:2.5,school:1,note:"Single male; gentle flow preferred."},
+ {n:"Guppy",cat:"schooler",minL:40,ph:[6.8,8.2],gh:[8,20],t:[22,28],sz:1.8,school:3,note:"Livebearer; thrives in hard alkaline water."},
+ {n:"Endler's Livebearer",cat:"schooler",minL:25,ph:[6.8,8.2],gh:[8,20],t:[22,28],sz:1,school:4,note:"Hard-water nano livebearer."},
+ {n:"Platy",cat:"schooler",minL:60,ph:[7.0,8.3],gh:[10,25],t:[20,26],sz:2.5,school:3,note:"Hardy livebearer; needs mineral-rich water."},
+ {n:"Molly",cat:"schooler",minL:75,ph:[7.2,8.5],gh:[12,25],t:[24,28],sz:4,school:3,note:"Hard alkaline water; tolerates brackish."},
+ {n:"Zebra Danio",cat:"schooler",minL:60,ph:[6.5,7.8],gh:[5,15],t:[18,25],sz:2,school:6,note:"Cool-tolerant, fast swimmer; loves current."},
+ {n:"White Cloud Minnow",cat:"schooler",minL:40,ph:[6.5,8.0],gh:[5,15],t:[16,23],sz:1.5,school:6,note:"Subtropical — no heater needed."},
+ {n:"Harlequin Rasbora",cat:"schooler",minL:50,ph:[6.0,7.5],gh:[2,12],t:[22,27],sz:2,school:6,note:"Peaceful mid-water shoaler."},
+ {n:"Chili Rasbora",cat:"schooler",minL:20,ph:[5.0,7.0],gh:[1,8],t:[24,28],sz:0.7,school:8,note:"Tiny blackwater gem; very soft water."},
+ {n:"Cherry Barb",cat:"schooler",minL:60,ph:[6.0,7.5],gh:[4,15],t:[22,27],sz:2,school:6,note:"Peaceful barb, adaptable."},
+ {n:"Tiger Barb",cat:"schooler",minL:110,ph:[6.0,7.5],gh:[5,15],t:[22,27],sz:3,school:8,note:"Semi-aggressive; big groups curb fin-nipping."},
+ {n:"Corydoras (Bronze)",cat:"bottom",minL:75,ph:[6.0,7.8],gh:[2,15],t:[22,27],sz:2.5,school:6,note:"Bottom crew; soft substrate, gentle water."},
+ {n:"Pygmy Corydoras",cat:"bottom",minL:40,ph:[6.0,7.5],gh:[2,12],t:[22,26],sz:1,school:8,note:"Nano bottom shoaler."},
+ {n:"Otocinclus",cat:"bottom",minL:55,ph:[6.0,7.5],gh:[3,12],t:[22,27],sz:1.8,school:6,note:"Algae grazer; needs mature, stable tank."},
+ {n:"Bristlenose Pleco",cat:"bottom",minL:110,ph:[6.5,7.8],gh:[4,18],t:[22,27],sz:5,school:1,note:"Compact pleco; heavy bioload for its size."},
+ {n:"Dwarf Gourami",cat:"center",minL:60,ph:[6.0,7.5],gh:[4,12],t:[24,28],sz:3.5,school:1,note:"Labyrinth breather; calm surface flow."},
+ {n:"Honey Gourami",cat:"center",minL:40,ph:[6.0,7.8],gh:[4,15],t:[23,28],sz:2,school:2,note:"Gentlest gourami; great community pick."},
+ {n:"Pearl Gourami",cat:"center",minL:120,ph:[6.0,7.8],gh:[4,15],t:[24,28],sz:4.5,school:2,note:"Elegant showpiece for planted tanks."},
+ {n:"Angelfish",cat:"center",minL:150,ph:[6.0,7.5],gh:[3,12],t:[24,29],sz:6,school:2,note:"Tall tank needed; soft-water cichlid."},
+ {n:"Discus",cat:"center",minL:250,ph:[5.5,7.0],gh:[1,8],t:[27,31],sz:8,school:5,note:"Demanding: very warm, very soft, very clean."},
+ {n:"German Blue Ram",cat:"center",minL:75,ph:[5.5,7.2],gh:[2,10],t:[26,30],sz:2.5,school:2,note:"Warm soft water; sensitive to nitrate."},
+ {n:"Bolivian Ram",cat:"center",minL:110,ph:[6.0,7.6],gh:[4,12],t:[23,27],sz:3.5,school:2,note:"Hardier ram for cooler community tanks."},
+ {n:"Apistogramma",cat:"center",minL:75,ph:[5.0,7.0],gh:[1,8],t:[23,28],sz:3,school:2,note:"Dwarf cichlid pair; blackwater breeder."},
+ {n:"Kribensis",cat:"center",minL:90,ph:[6.0,7.8],gh:[5,15],t:[24,28],sz:4,school:2,note:"Cave-spawning dwarf cichlid; adaptable."},
+ {n:"Yellow Lab (Mbuna)",cat:"center",minL:200,ph:[7.6,8.6],gh:[10,25],t:[24,28],sz:4,school:5,note:"Rift-lake cichlid; hard alkaline water, rockwork."},
+ {n:"Peacock Cichlid",cat:"center",minL:210,ph:[7.6,8.6],gh:[10,25],t:[24,28],sz:6,school:4,note:"Lake Malawi haps; high pH and KH essential."},
+ {n:"Boesemani Rainbowfish",cat:"schooler",minL:200,ph:[7.0,8.0],gh:[8,20],t:[24,28],sz:4.5,school:6,note:"Active shoaler for neutral-hard water."},
+ {n:"Fancy Goldfish",cat:"center",minL:110,ph:[7.0,8.4],gh:[8,20],t:[18,23],sz:6,school:2,note:"Coldwater; massive bioload — filter hard."},
+ {n:"Oscar",cat:"center",minL:280,ph:[6.5,7.8],gh:[5,15],t:[24,28],sz:12,school:1,note:"Tank-buster with huge waste output."},
+ {n:"Cherry Shrimp",cat:"invert",minL:20,ph:[6.5,7.8],gh:[6,15],t:[20,26],sz:1,school:10,note:"Needs GH for molting; avoid copper media."},
+ {n:"Amano Shrimp",cat:"invert",minL:38,ph:[6.5,7.8],gh:[4,14],t:[20,26],sz:2,school:5,note:"Algae-eating workhorse; stable water."},
+ {n:"Nerite Snail",cat:"invert",minL:20,ph:[7.0,8.4],gh:[6,20],t:[22,27],sz:1,school:1,note:"Needs KH/GH for shell; won't breed in freshwater."},
+ {n:"Rummy-nose Tetra",cat:"schooler",minL:60,ph:[5.5,7.0],gh:[2,10],t:[24,29],sz:2,school:8,note:"Tight shoaler; nose colour fades when water quality slips - a living test kit."},
+ {n:"Congo Tetra",cat:"schooler",minL:100,ph:[6.0,7.5],gh:[3,18],t:[23,26],sz:3.2,school:6,note:"Large iridescent African tetra; calm flow and open swimming space."},
+ {n:"Black Neon Tetra",cat:"schooler",minL:60,ph:[5.5,7.5],gh:[2,12],t:[23,27],sz:1.5,school:6,note:"Hardier than true neons; tolerates a wider range."},
+ {n:"Glowlight Tetra",cat:"schooler",minL:50,ph:[5.8,7.5],gh:[2,12],t:[24,28],sz:1.6,school:6,note:"Peaceful soft-water shoaler with an orange stripe."},
+ {n:"Serpae Tetra",cat:"schooler",minL:75,ph:[5.5,7.5],gh:[4,15],t:[22,27],sz:1.7,school:8,note:"Can nip fins in small groups - keep 8 or more."},
+ {n:"Black Skirt Tetra",cat:"schooler",minL:75,ph:[6.0,7.5],gh:[4,15],t:[21,26],sz:2.5,school:6,note:"Hardy classic; avoid long-finned tankmates."},
+ {n:"Marbled Hatchetfish",cat:"schooler",minL:60,ph:[5.5,7.0],gh:[2,10],t:[24,28],sz:1.5,school:6,note:"Surface dweller and jumper - tight lid essential."},
+ {n:"Celestial Pearl Danio",cat:"schooler",minL:40,ph:[6.5,7.5],gh:[2,12],t:[22,24],sz:1,school:8,note:"Cool-leaning nano gem; heavy planting brings it out."},
+ {n:"Kuhli Loach",cat:"bottom",minL:60,ph:[6.0,7.5],gh:[2,10],t:[24,28],sz:4,school:5,note:"Eel-like night forager; needs soft sand and hides."},
+ {n:"Hillstream Loach",cat:"bottom",minL:75,ph:[6.5,7.8],gh:[4,12],t:[20,24],sz:3,school:3,note:"Cool, high-flow, high-oxygen river biotope; algae grazer."},
+ {n:"Clown Loach",cat:"bottom",minL:400,ph:[6.0,7.5],gh:[5,12],t:[25,30],sz:10,school:5,note:"Grows to 30 cm and lives decades - true tank-buster."},
+ {n:"Panda Corydoras",cat:"bottom",minL:60,ph:[6.0,7.5],gh:[2,10],t:[20,25],sz:2,school:6,note:"Cooler-water cory from Andean streams."},
+ {n:"Sterbai Corydoras",cat:"bottom",minL:75,ph:[6.0,7.6],gh:[2,12],t:[24,28],sz:2.5,school:6,note:"Warmth-tolerant cory - the classic discus companion."},
+ {n:"Swordtail",cat:"schooler",minL:100,ph:[7.0,8.2],gh:[8,20],t:[22,26],sz:5,school:3,note:"Active hard-water livebearer; males spar - keep more females."},
+ {n:"Rosy Barb",cat:"schooler",minL:75,ph:[6.0,8.0],gh:[5,15],t:[18,25],sz:4,school:6,note:"Subtropical - happy unheated indoors; very hardy."},
+ {n:"Odessa Barb",cat:"schooler",minL:75,ph:[6.5,7.5],gh:[4,12],t:[21,26],sz:3,school:6,note:"Blazing red stripe without artificial selection."},
+ {n:"Denison Barb (Roseline)",cat:"schooler",minL:200,ph:[6.8,7.8],gh:[5,20],t:[22,25],sz:5.5,school:6,note:"Fast schooling river fish; strong current and oxygen."},
+ {n:"Pearl Danio",cat:"schooler",minL:60,ph:[6.5,7.5],gh:[4,12],t:[20,25],sz:2.2,school:6,note:"Undemanding cool-tolerant schooler."},
+ {n:"Sparkling Gourami",cat:"center",minL:40,ph:[6.0,7.5],gh:[2,10],t:[24,28],sz:1.5,school:3,note:"Croaking nano gourami for still, planted water."},
+ {n:"Paradise Fish",cat:"center",minL:75,ph:[6.0,8.0],gh:[5,20],t:[16,26],sz:4,school:1,note:"Near-coldwater labyrinth fish; males fight - keep one."},
+ {n:"Electric Blue Acara",cat:"center",minL:150,ph:[6.5,7.8],gh:[5,15],t:[23,28],sz:6,school:2,note:"Peaceful-for-a-cichlid showpiece; sturdy plants only."},
+ {n:"Firemouth Cichlid",cat:"center",minL:150,ph:[6.8,8.0],gh:[8,15],t:[24,28],sz:6,school:2,note:"Displays more than it fights; likes hard-ish water."},
+ {n:"Pea Puffer",cat:"center",minL:20,ph:[7.0,7.8],gh:[5,15],t:[23,28],sz:1.4,school:1,note:"Species-tank micro-predator; needs snails in the diet."},
+ {n:"Golden Wonder Killifish",cat:"center",minL:75,ph:[6.5,7.8],gh:[5,15],t:[22,26],sz:4,school:2,note:"Surface hunter; jumps - lid required."},
+ {n:"Siamese Algae Eater",cat:"bottom",minL:150,ph:[6.5,7.8],gh:[5,15],t:[24,26],sz:6,school:3,note:"True SAE eats black beard algae; active swimmer."},
+ {n:"Glass Catfish",cat:"schooler",minL:110,ph:[6.0,7.0],gh:[2,10],t:[24,28],sz:4,school:5,note:"Transparent shoaling catfish; shy, needs soft stable water."},
+ {n:"Upside-down Catfish",cat:"bottom",minL:110,ph:[6.5,7.8],gh:[4,15],t:[24,28],sz:4,school:3,note:"African synodontis that feeds inverted at the surface."},
+ {n:"Common Pleco",cat:"bottom",minL:450,ph:[6.5,7.8],gh:[4,15],t:[23,28],sz:18,school:1,note:"Reaches 45 cm with a massive bioload - ponds or huge tanks only."},
+ {n:"Bamboo Shrimp",cat:"invert",minL:75,ph:[6.5,7.8],gh:[4,15],t:[22,28],sz:3,school:1,note:"Fan-filter feeder; needs flow and fine particles in the water."},
+ {n:"Mystery Snail",cat:"invert",minL:20,ph:[7.0,8.2],gh:[6,18],t:[20,28],sz:2,school:1,note:"Needs calcium for shell; lays eggs above the waterline."}
+];
+
+/* ---------- state ---------- */
+const MAX_SLOTS = 6;
+let stack = [];            // [{id, pct(0-100), locked:bool}] — pct always sums to 100
+let imperial = false;
+const $ = id => document.getElementById(id);
+const L2G = 0.264172, M2FT = 10.7639;
+const mediaById = id => MEDIA.find(m=>m.id===id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* =====================================================================
+   ALLOCATION — media percentages always sum to exactly 100
+   ===================================================================== */
+function normalize(exceptIdx=-1){
+  if(!stack.length) return;
+  // Fix the excepted slot and all locked slots; scale the rest to fill the remainder.
+  const fixed = stack.filter((s,i)=>i===exceptIdx || (s.locked && i!==exceptIdx && exceptIdx>=0) || (exceptIdx<0 && s.locked));
+  const free  = stack.filter((s,i)=>!fixed.includes(s));
+  let fixedSum = fixed.reduce((a,s)=>a+s.pct,0);
+  if(fixedSum>100){ // scale fixed down proportionally (except slider-driven slot keeps its value if possible)
+    const scale=100/fixedSum;
+    fixed.forEach(s=>s.pct*=scale);
+    free.forEach(s=>s.pct=0);
+  } else {
+    const rem = 100-fixedSum;
+    const freeSum = free.reduce((a,s)=>a+s.pct,0);
+    if(free.length){
+      if(freeSum<=0) free.forEach(s=>s.pct=rem/free.length);
+      else free.forEach(s=>s.pct=s.pct/freeSum*rem);
+    } else if(fixed.length){ // no free slots: scale fixed to hit exactly 100
+      const scale=100/fixedSum;
+      fixed.forEach(s=>s.pct*=scale);
+    }
+  }
+  // round-trip drift correction
+  const sum=stack.reduce((a,s)=>a+s.pct,0);
+  if(Math.abs(sum-100)>1e-6 && stack.length) stack[stack.length-1].pct += 100-sum;
+}
+function addMedia(id){
+  if(stack.length>=MAX_SLOTS || stack.some(s=>s.id===id)) return;
+  const share = 100/(stack.length+1);
+  stack.forEach(s=>{ if(!s.locked) s.pct *= (100-share)/100; });
+  stack.push({id, pct:share, locked:false});
+  normalize();
+}
+function removeMedia(idx){ stack.splice(idx,1); normalize(); }
+
+/* ---------- slots with built-in media picker ---------- */
+function pickerHTML(selId, slotIdx){
+  const opts=['<option value="">'+ (selId?"None (remove)":"None - select media") +'</option>'];
+  MEDIA.forEach(m=>{
+    const usedElsewhere = stack.some((s,i)=>s.id===m.id && i!==slotIdx);
+    opts.push(`<option value="${m.id}" ${m.id===selId?"selected":""} ${usedElsewhere?"disabled":""}>${m.name}</option>`);
+  });
+  return `<select class="pick" aria-label="media for slot ${slotIdx+1}">${opts.join("")}</select>`;
+}
+function renderSlots(){
+  const box = $("slots"); box.innerHTML = "";
+  const filterL = +$("filterVol").value;
+  for(let idx=0; idx<MAX_SLOTS; idx++){
+    const s = stack[idx];
+    const m = s ? mediaById(s.id) : null;
+    const el = document.createElement("div");
+    el.className = "slot"+(s?"":" pickonly");
+    if(s){
+      const litres = s.pct/100*filterL;
+      el.innerHTML = `<div class="slot-head">
+          <span class="nm"><span class="dot" style="background:${m.real};border:1px solid rgba(0,0,0,.12)"></span>${pickerHTML(s.id, idx)}</span>
+          <span class="ctl">
+            <button class="inf" title="Science breakdown" aria-label="science breakdown for ${m.name}">i</button>
+            <button class="lk ${s.locked?'on':''}" title="${s.locked?'Unlock share':'Lock share'}" aria-label="lock share">${s.locked?"Locked":"Lock"}</button>
+          </span></div>
+        <div class="slot-vol"><span>SHARE</span>
+        <input type="range" min="0" max="100" step="1" value="${Math.round(s.pct)}" aria-label="${m.name} share of filter" ${s.locked?"disabled":""}>
+        <output>${fmtShare(s.pct, litres)}</output></div>`;
+      el.querySelector(".inf").onclick = ()=>openSci(m);
+      el.querySelector(".lk").onclick = ()=>{ s.locked=!s.locked; render(); save(); };
+      const r = el.querySelector("input");
+      r.oninput = ()=>{
+        s.pct = +r.value;
+        normalize(idx);
+        s.pct = stack[idx].pct; // may have been clamped
+        refreshSlotOutputs(); drawAlloc(); paintRange(r); compute(); save();
+      };
+      paintRange(r);
+    } else {
+      el.innerHTML = `<div class="slot-head"><span class="nm"><span class="dot" style="background:#d4d4cf"></span>${pickerHTML("", idx)}</span>
+        <span class="hint">slot ${idx+1}</span></div>`;
+    }
+    el.querySelector(".pick").onchange = e=>{
+      const id=e.target.value;
+      if(s && !id) removeMedia(idx);
+      else if(s && id) stack[idx].id=id;
+      else if(!s && id) addMedia(id);
+      render(); save();
+    };
+    box.appendChild(el);
+  }
+  $("slotCount").textContent = `${stack.length} / ${MAX_SLOTS} in use`;
+  drawAlloc();
+}
+function refreshSlotOutputs(){
+  const filterL = +$("filterVol").value;
+  document.querySelectorAll("#slots .slot:not(.pickonly)").forEach((el,i)=>{
+    const s=stack[i]; if(!s) return;
+    el.querySelector("output").textContent = fmtShare(s.pct, s.pct/100*filterL);
+    const r=el.querySelector("input");
+    if(document.activeElement!==r){ r.value=Math.round(s.pct); paintRange(r); }
+  });
+}
+function fmtShare(pct, litres){
+  const vol = imperial ? (litres*L2G).toFixed(2)+" gal" : litres.toFixed(2)+" L";
+  return `${pct.toFixed(0)}% · ${vol}`;
+}
+function drawAlloc(){
+  const bar=$("allocBar"); bar.innerHTML="";
+  if(!stack.length){ bar.title="empty"; return; }
+  stack.forEach(s=>{
+    const m=mediaById(s.id);
+    const sp=document.createElement("span");
+    sp.style.width=s.pct+"%"; sp.style.background=m.real; sp.style.boxShadow="inset 0 0 0 1px rgba(0,0,0,.08)";
+    sp.title=`${m.name}: ${s.pct.toFixed(0)}%`;
+    bar.appendChild(sp);
+  });
+}
+function paintRange(r){ r.style.setProperty("--fill", ((r.value-r.min)/(r.max-r.min)*100)+"%"); }
+
+/* =====================================================================
+   CALCULATION ENGINE
+   ===================================================================== */
+function compute(){
+  const tankL = +$("tankVol").value;
+  const filterL = +$("filterVol").value;
+  const flowLPH = +$("flow").value;
+  const temp = +$("temp").value;
+  const tapPH = +$("tapPH").value;
+  const tapKH = +$("tapKH").value;
+  const tapGH = +$("tapGH").value;
+  const wc = +$("wc").value/100;          // weekly water-change fraction
+  const demandRate = +$("stocking").value; // g NH3/day per L tank
+  const turnover = flowLPH / tankL;
+  const contactSec = flowLPH>0 ? filterL/flowLPH*3600 : 0;
+  // Nitrification temperature correction (Q10 ≈ 1.9, ref 26 °C), capped —
+  // above ~30 °C oxygen solubility starts offsetting the kinetic gain.
+  const tFactor = clamp(Math.pow(1.9,(Math.min(temp,30)-26)/10), .3, 1.5);
+
+  let bioArea=0, totArea=0, ammCap=0, anoxArea=0;
+  let phPull=0, khPull=0, ghPull=0;
+  let hasBuffer=false, hasAcid=false, hasDeepPore=false, hasFluid=false;
+  const exhausting=[];
+
+  stack.forEach(s=>{
+    const m = mediaById(s.id);
+    const vol = s.pct/100*filterL;
+    bioArea  += m.ssaBio * vol;
+    totArea  += m.ssaTotal * vol;
+    // Fluidized media dodge diffusion limits; static media get a flow-dependent
+    // boundary-layer factor (starved below 2× turnover, plateau above 4×).
+    const flowFactor = m.fluidized ? 1 : Math.min(1, 0.4 + 0.15*turnover);
+    ammCap  += m.ssaBio * vol * m.nitRate * flowFactor * tFactor;
+    anoxArea+= m.ssaBio * vol * m.anoxic;
+    const dose = vol / (tankL/100);          // L media per 100 L water
+    phPull += m.phShift * dose;
+    khPull += m.khShift * dose;
+    ghPull += m.ghShift * dose;
+    if(m.id==="coral") hasBuffer=true;
+    if(m.id==="peat")  hasAcid=true;
+    if(m.anoxic>=0.5 && vol>0.05)  hasDeepPore=true;
+    if(m.fluidized && vol>0.05)    hasFluid=true;
+    if(m.exhaustDays && vol>0.05)  exhausting.push({name:m.name, days:m.exhaustDays});
+  });
+
+  /* ---- chemistry: tap water is the baseline; weekly water changes
+     continuously pull the tank back toward tap values. A wc fraction w
+     replaced weekly ≈ first-order dilution that shrinks steady-state
+     drift by 1/(1+3w). ---- */
+  const wcDamp = 1/(1+3*wc);
+  const khDamp = 1/(1 + 0.10*Math.max(tapKH + Math.max(khPull,0)*0.5, 0));
+  let phFinal = tapPH + phPull*khDamp*wcDamp;
+  if(hasBuffer) phFinal = Math.min(phFinal, Math.max(tapPH, 8.2)); // aragonite self-limits
+  phFinal = clamp(phFinal, 4.5, 9.2);
+  const khFinal = Math.max(0, tapKH + khPull*wcDamp);
+  const ghFinal = Math.max(0, tapGH + ghPull*wcDamp);
+
+  // Bio-load: ~0.1 g NH3-N/day per inch of small fish; ~10 g fish ≈ 0.025 g/day.
+  // Filter capacity can exceed what a tank can physically host — cap the
+  // usable figure at ~3 fish-inches per gallon (an aggressive but real ceiling
+  // set by oxygen, territory and waste other than ammonia).
+  const filterInches = ammCap / 0.1;
+  const tankCapInches = tankL*L2G*3;
+  const fishInches = Math.min(filterInches, tankCapInches);
+  const tankLimited = filterInches > tankCapInches;
+  const fishGrams  = fishInches * 40;
+  const demand = tankL*demandRate;
+
+
+  // Nitrate removal 0-100: anoxic area vs tank size, penalized by fast flow
+  const anoxPerTank = anoxArea / tankL;
+  let no3 = 100 * (1 - Math.exp(-anoxPerTank*1.6));
+  const flowPenalty = turnover>8 ? Math.max(.35, 1-(turnover-8)*0.06) : 1;
+  no3 *= flowPenalty;
+  const denitFrac = clamp(no3/100, 0, 0.95);   // biological removal alone
+  // water changes also export nitrate — small bonus to effective removal
+  no3 = clamp(no3 + wc*20*(1-no3/100), 0, 100);
+  /* ---- nitrogen mass balance (real-world stoichiometry) ----
+     Nitrogen is conserved through nitrification: 1 g NH3-N -> 1 g NO2-N
+     -> 1 g NO3-N. As nitrate ion that is x4.43 by mass (62/14).
+     Weekly NO3-N reaching the water: stock production x 7 days, less the
+     biologically denitrified fraction. Weekly water changes of fraction w
+     dilute toward the geometric steady state N_ss = A(1-w)/w. */
+  const processed = Math.min(demand, ammCap);        // g NH3-N/day actually nitrified
+  const weeklyNO3N = processed*7*(1-denitFrac);      // g NO3-N added to water per week
+  const weeklyPPM  = weeklyNO3N/tankL*1000*4.43;     // mg/L nitrate ion added weekly
+  const no3ss = wc>0 ? weeklyPPM*(1-wc)/wc : Infinity;
+  /* fishless cycle estimate: ~32 days at 26 C for bare media; faster when
+     warm (Q10), with self-cleaning fluidized media, or high-SSA porous
+     media that hosts dense founder colonies. */
+  let cycleDays = 32/tFactor;
+  if(hasFluid) cycleDays -= 6;
+  if(bioArea/tankL > 1.5) cycleDays -= 4;
+  cycleDays = clamp(Math.round(cycleDays), 12, 70);
+
+  // Bio-capacity meter: 50% = capacity exactly meets demand, 100% = 2× headroom
+  const bioPct = clamp(demand>0 ? ammCap/(demand*2)*100 : 0, 0, 100);
+
+  // Chemical stability: drift, low KH, buffer conflict, and huge WC swings hurt
+  let stab = 100 - Math.min(60, Math.abs(phFinal-tapPH)*45) - (khFinal<3 ? (3-khFinal)*12 : 0);
+  if(hasBuffer && hasAcid) stab -= 15;
+  if(wc>0.5 && Math.abs(phFinal-tapPH)>0.4) stab -= 10; // big WC into drifted tank = pH swing
+  stab = clamp(stab, 0, 100);
+
+  // Flow match: aerobic sweet spot 4–8× turnover
+  let flowScore;
+  if(turnover<4) flowScore = turnover/4*100;
+  else if(turnover<=8) flowScore = 100;
+  else flowScore = Math.max(20, 100-(turnover-8)*9);
+
+  /* ---- badges ---- */
+  const badges=[];
+  if(hasDeepPore && no3>40) badges.push(["good","High-Pore Synergy — deep anoxic cores active"]);
+  if(hasBuffer && hasAcid) badges.push(["warn","Buffer Conflict — coral vs peat fighting over KH"]);
+  else if(hasBuffer) badges.push(["good","Alkaline Buffer Activated — KH/pH supported"]);
+  else if(hasAcid) badges.push(["mag","Acid Buffer Activated — blackwater drift engaged"]);
+  if(hasFluid && hasDeepPore) badges.push(["good","Full-Cycle Combo — MBBR nitrification + porous denitrification"]);
+  if(turnover>10) badges.push(["bad","Flow Overdrive — pores re-oxygenating, denitrification suppressed"]);
+  if(turnover<2 && stack.length) badges.push(["bad","Flow Starvation — biofilm O₂-limited"]);
+  if(stack.length && ammCap<demand) badges.push(["bad","Under-Filtered — capacity below stock demand"]);
+  if(khFinal<2 && hasAcid) badges.push(["bad","KH Crash Risk — pH may free-fall"]);
+  if(phFinal>8.0 && demandRate>=0.005) badges.push(["warn","NH3 Toxicity Risk — high pH shifts ammonium to free ammonia"]);
+  if(wc===0 && stack.length) badges.push(["warn","No Water Changes — nitrate and TDS will accumulate"]);
+  if(temp<20 && stack.length) badges.push(["warn","Cold Kinetics — nitrifiers running at reduced rate"]);
+  if(filterL > tankL*0.15) badges.push(["warn","Oversized Filter — media volume >15% of tank"]);
+  if(phFinal<6 || phFinal>8.6) badges.push(["bad","pH Out of Range for most livestock"]);
+  $("badges").innerHTML = badges.map(([c,t])=>`<span class="badge ${c}">${t}</span>`).join("") ||
+    `<span style="color:var(--dim);font-size:11px">No synergies detected — equip media to trigger buffs.</span>`;
+
+  /* ---- overall rank ---- */
+  const parts = {Bio:bioPct, NO3:no3, Stability:stab, Flow:flowScore};
+  let score = stack.length ? bioPct*0.35 + no3*0.2 + stab*0.25 + flowScore*0.2 : 0;
+  if(badges.some(b=>b[0]==="bad")) score *= 0.85;
+  const tiers=[[90,"S","#0f766e","Reference-grade stack: balanced nitrification, denitrification and chemistry."],
+    [75,"A","#2563eb","Excellent. Minor tuning could push this to S-tier."],
+    [60,"B","#6d28d9","Solid daily-driver filter. Some headroom left."],
+    [45,"C","#b45309","Functional but unbalanced — check flow and anoxic capacity."],
+    [25,"D","#c2410c","Weak stack. Livestock margin is thin."],
+    [-1,"F","#b91c1c","Failing build — this tank is one missed water change from a crisis."]];
+  const [,letter,color,desc] = tiers.find(t=>score>=t[0]) || tiers[5];
+  const rl=$("rankLetter");
+  rl.textContent = stack.length?letter:"–";
+  rl.style.color = stack.length?color:"var(--dim)";
+  $("rankDesc").textContent = stack.length?desc:"Add media to your stack to begin simulation.";
+  $("rankChip").title = stack.length
+    ? "Score "+score.toFixed(0)+"/100 — "+Object.entries(parts).map(([k,v])=>`${k} ${v.toFixed(0)}`).join(" · ")
+    : "";
+
+  /* ---- paint outputs ---- */
+  $("sSSA").textContent = imperial ? (bioArea*M2FT).toFixed(0) : bioArea.toFixed(1);
+  $("kSSA").textContent = imperial ? "Effective bio-area (ft²)" : "Effective bio-area (m²)";
+  $("sSSA").title = `Total incl. micropores: ${imperial?(totArea*M2FT).toFixed(0)+" ft²":totArea.toFixed(0)+" m²"}`;
+  $("sAmm").textContent = ammCap.toFixed(2);
+  $("sFish").textContent = fishInches.toFixed(1);
+  $("kFish").textContent = `Fish supported (in · ≈${fishGrams.toFixed(0)} g${tankLimited?" · tank-limited":""})`;
+  $("sFish").title = tankLimited
+    ? `Filter alone could process ${filterInches.toFixed(0)} in of bio-load, but oxygen/space cap this tank near ${tankCapInches.toFixed(0)} in.`
+    : "Limited by filter nitrification capacity.";
+  $("sTurn").textContent = turnover.toFixed(1)+"×";
+  $("sContact").textContent = contactSec<90 ? contactSec.toFixed(0)+"s" : (contactSec/60).toFixed(1)+"m";
+  $("sDemand").textContent = demand.toFixed(2);
+  $("sCycle").textContent = stack.length ? "~"+cycleDays+" d" : "-";
+  const ssTxt = !stack.length ? "-" : (wc>0 ? no3ss.toFixed(0) : ">100");
+  $("sNO3ss").textContent = ssTxt;
+  $("kNO3ss").textContent = wc>0 ? "Steady-state nitrate (ppm)" : "Nitrate (rising - no water changes)";
+  // nitrogen cycle flow chips
+  // plain-language headline
+  if(stack.length){
+    const tetras=Math.floor(fishInches/1.5);
+    const no3Word = wc<=0 ? '<span class="pbad">will keep rising (no water changes)</span>'
+      : no3ss>40 ? `<span class="pbad">settle high at ~${no3ss.toFixed(0)} ppm</span>`
+      : no3ss>20 ? `<span class="pwarn">settle at ~${no3ss.toFixed(0)} ppm</span>`
+      : `<span class="pgood">stay low at ~${no3ss.toFixed(0)} ppm</span>`;
+    const fitWord = ammCap>=demand*1.5 ? '<span class="pgood">comfortably handles</span>'
+      : ammCap>=demand ? '<span class="pwarn">just covers</span>' : '<span class="pbad">cannot keep up with</span>';
+    const drift=phFinal-tapPH;
+    const phWord = Math.abs(drift)<0.15 ? `hold steady near <b>${phFinal.toFixed(1)}</b>`
+      : `drift ${drift>0?"up":"down"} to <b>${phFinal.toFixed(1)}</b>`;
+    $("plainSum").innerHTML =
+      `This filter ${fitWord} your stocking - room for about <b>${fishInches.toFixed(0)} inches</b> of fish (&asymp;${tetras} small tetras). `+
+      `Nitrate should ${no3Word}, and your pH will ${phWord}. `+
+      `A new setup takes about <b>${cycleDays} days</b> to cycle.`;
+  } else {
+    $("plainSum").textContent = "Pick media in Build Your Filter to see what your setup can do.";
+  }
+  const ssCls = !stack.length ? "" : (wc<=0||no3ss>40) ? "badf" : no3ss>20 ? "warnf" : "okf";
+  const capX = demand>0 ? Math.min(99, ammCap/demand) : 0;
+  $("ncycle").innerHTML = !stack.length ? "" : `
+    <div class="nstep"><div class="nv">${demand.toFixed(2)}</div><div class="nk">Fish waste</div><div class="nsub">g NH3-N / day</div></div>
+    <span class="narr">&rarr;</span>
+    <div class="nstep"><div class="nv">${processed.toFixed(2)}</div><div class="nk">Nitrified</div><div class="nsub">${capX>=1?capX.toFixed(1)+"x capacity":"UNDERSIZED"}</div></div>
+    <span class="narr">&rarr;</span>
+    <div class="nstep"><div class="nv">+${weeklyPPM.toFixed(1)}</div><div class="nk">Nitrate / wk</div><div class="nsub">ppm, after ${(denitFrac*100).toFixed(0)}% denitrified</div></div>
+    <span class="narr">&rarr;</span>
+    <div class="nstep final ${ssCls}"><div class="nv">${ssTxt}${wc>0?" ppm":""}</div><div class="nk">Steady state</div><div class="nsub">${wc>0?(wc*100).toFixed(0)+"% weekly changes":"add water changes"}</div></div>`;
+  setMeter("mBio", bioPct); setMeter("mNO3", no3); setMeter("mStab", stab); setMeter("mFlow", flowScore);
+  $("mBioMark").style.left = "50%"; // 50% == capacity meets demand exactly
+  $("exhaustLine").textContent = exhausting.length
+    ? "Replace: " + exhausting.map(e=>`${e.name} ~day ${e.days}`).join(" · ") : "";
+
+  drawChem(tapPH, phFinal, tapKH, khFinal, tapGH, ghFinal);
+  const d=(v,dp=2)=>((v>=0?"+":"")+v.toFixed(dp));
+  $("phSummary").textContent = stack.length
+    ? `Day-30 projection: pH ${phFinal.toFixed(2)} (${d(phFinal-tapPH)}), KH ${khFinal.toFixed(1)} dKH (${d(khFinal-tapKH,1)}), GH ${ghFinal.toFixed(1)} dGH (${d(ghFinal-tapGH,1)}). ${(wc*100).toFixed(0)}% weekly water changes damp drift to ${(wcDamp*100).toFixed(0)}%; KH buffering damps pH pull to ${(khDamp*100).toFixed(0)}%.`
+    : "Equip media to project chemistry drift from your tap baseline.";
+
+  updateFish({tankL, ph:phFinal, gh:ghFinal, kh:khFinal, temp, fishInches});
+  updateAdvice({tankL, filterL, ph:phFinal, kh:khFinal, gh:ghFinal, tapPH, tapKH, tapGH, wc, hasBuffer, hasAcid, khDamp, wcDamp});
+  viz.update(turnover, flowLPH);
+}
+function setMeter(id,v){ $(id).style.width=v+"%"; $(id+"V").textContent=v.toFixed(0)+"%"; }
+
+/* =====================================================================
+   LIVESTOCK MATCHING — score each species against tank volume and
+   the projected day-30 water (pH, GH, temperature).
+   Soft tolerance: a parameter slightly outside the tolerated range
+   degrades the score linearly instead of failing outright.
+   ===================================================================== */
+function rangeScore(v, [lo,hi], tol){
+  if(v>=lo && v<=hi) return 1;
+  const d = v<lo ? lo-v : v-hi;
+  return d>=tol ? 0 : 1-d/tol;
+}
+let lastFishCtx=null;
+function updateFish(ctx){
+  lastFishCtx=ctx;
+  const {tankL, ph, gh, temp, fishInches}=ctx;
+  const list=$("fishList"), sum=$("fishSummary");
+  const gal=(tankL*L2G).toFixed(0);
+  const q=($("fishSearch").value||"").toLowerCase();
+  const cat=$("fishCat").value;
+  const pool=FISH.filter(f=>(!q || f.n.toLowerCase().includes(q) || f.note.toLowerCase().includes(q)) && (!cat || f.cat===cat));
+  const scored = pool.map(f=>{
+    if(tankL < f.minL) return null;
+    const sc = rangeScore(ph,f.ph,0.6) * rangeScore(gh,f.gh,4) * rangeScore(temp,f.t,2.5);
+    return sc>0.30 ? {f, s:sc} : null;
+  }).filter(Boolean).sort((a,b)=>b.f.sz-a.f.sz || b.s-a.s); // largest adult size first
+  const nP=scored.filter(x=>x.s>=0.85).length, nG=scored.filter(x=>x.s>=0.6&&x.s<0.85).length, nS=scored.length-nP-nG;
+  sum.innerHTML = `Tank <b>${tankL} L / ${gal} gal</b> at projected pH <b>${ph.toFixed(1)}</b>, GH <b>${gh.toFixed(0)} dGH</b>, <b>${temp.toFixed(0)} &deg;C</b> &middot; filter capacity &asymp; <b>${fishInches.toFixed(0)}</b> fish-inches &middot; <b>${nP}</b> perfect / <b>${nG}</b> good / <b>${nS}</b> stretch matches${scored.length>20?" (largest 20 shown)":""}, largest first. Bars show each species' pH range; the black tick is your water.`;
+  if(!scored.length){
+    list.innerHTML = `<div class="fish-empty">${q||cat?"No matches for this search/filter in your water - clear it to see all matches.":"No good matches - water is outside common freshwater ranges, or the tank is too small. Check the Advisor for corrections."}</div>`;
+    return;
+  }
+  const PHMIN=4.5, PHMAX=9.2, px=v=>clamp((v-PHMIN)/(PHMAX-PHMIN)*100,0,100);
+  list.innerHTML = scored.slice(0,20).map(({f,s})=>{
+    const cls = s>=0.85?"perfect":s>=0.6?"good":"stretch";
+    const lbl = s>=0.85?"Perfect":s>=0.6?"Good":"Stretch";
+    const grp = f.school>1?`group of ${f.school}+`:"single/pair";
+    const groupIn=(f.sz*Math.max(f.school,1)).toFixed(0);
+    const capPct=fishInches>0?Math.min(100,(f.sz*Math.max(f.school,1))/fishInches*100):0;
+    return `<div class="fish" title="${f.note}">
+      <span class="fbody"><span class="fn">${f.n}</span> <span class="fd">&middot; ${f.sz}&Prime; &middot; ${grp} &asymp; ${groupIn} in (${capPct<1?"<1":capPct.toFixed(0)}% of capacity)</span><br>
+      <span class="fd">GH ${f.gh[0]}&ndash;${f.gh[1]} &middot; ${f.t[0]}&ndash;${f.t[1]} &deg;C &middot; min ${imperial?(f.minL*L2G).toFixed(0)+" gal":f.minL+" L"}</span>
+      <span class="phbar" title="pH ${f.ph[0]}&ndash;${f.ph[1]} vs your ${ph.toFixed(1)}"><i style="left:${px(f.ph[0])}%;width:${px(f.ph[1])-px(f.ph[0])}%"></i><u style="left:${px(ph)}%"></u></span></span>
+      <span class="match ${cls}">${lbl} ${(s*100).toFixed(0)}%</span></div>`;
+  }).join("");
+}
+
+/* =====================================================================
+   CHEMISTRY ADVISOR — compare the projection against user targets and
+   emit quantitative, prioritized corrections.
+   Dosing bases: NaHCO3 ~3 g / 100 L raises 1 dKH; GH remineralizer
+   (Equilibrium-class) ~6.7 g / 100 L raises 1 dGH; RO dilution scales
+   both KH and GH linearly.
+   ===================================================================== */
+function updateAdvice(ctx){
+  const tPH=+$("tgtPH").value, tKH=+$("tgtKH").value, tGH=+$("tgtGH").value;
+  const {tankL, filterL, ph, kh, gh, tapKH, tapGH, wc, hasBuffer, hasAcid, khDamp, wcDamp} = ctx;
+  // visual tracks: filled dot = projected day-30 value, ring = your target
+  const track=(name,cur,tgt,lo,hi,unit)=>{
+    const p=v=>clamp((v-lo)/(hi-lo)*100,0,100);
+    const l=Math.min(p(cur),p(tgt)), w=Math.abs(p(cur)-p(tgt));
+    return `<div class="adv-track"><div class="atl"><span>${name}</span><b>${cur.toFixed(1)}${unit} &rarr; ${tgt.toFixed(1)}${unit}</b></div>
+      <div class="atbar"><span class="span" style="left:${l}%;width:${w}%"></span>
+      <span class="cur" style="left:${p(cur)}%" title="projected"></span>
+      <span class="tgt" style="left:${p(tgt)}%" title="target"></span></div></div>`;
+  };
+  $("advTracks").innerHTML = stack.length
+    ? track("pH",ph,tPH,5,9,"")+track("KH",kh,tKH,0,20," dKH")+track("GH",gh,tGH,0,25," dGH")
+    : "";
+  const out=[];
+  const dPH=tPH-ph, dKH=tKH-kh, dGH=tGH-gh;
+  const li=(cls,html,why)=>out.push(`<li class="${cls}">${html}${why?`<span class="why">${why}</span>`:""}</li>`);
+
+  if(!stack.length){ li("warn2","Equip filter media first — the advisor compares your <b>targets</b> against the projected day-30 water."); }
+  // --- pH ---
+  if(Math.abs(dPH)<=0.15) li("ok",`✓ pH on target (projected ${ph.toFixed(2)} vs goal ${tPH.toFixed(1)}).`);
+  else if(dPH<0){ // need to LOWER pH
+    const drive = 0.8*Math.max(khDamp*wcDamp,0.15);
+    const rawShare = Math.abs(dPH)/drive*(tankL/100)/filterL*100;
+    const share = clamp(rawShare,2,60);
+    const peatL = share/100*filterL;
+    li("lower",`Lower pH by <b>${Math.abs(dPH).toFixed(2)}</b>: allocate ≈ <b>${share.toFixed(0)}%</b> of the filter (~${peatL.toFixed(1)} L) to <b>Peat Moss</b>${rawShare>60?" — media alone won't get there; combine with RO dilution below":""}, or add driftwood / catappa leaves.`,
+      "Humic acids consume KH and release H⁺; effect strengthens as KH falls.");
+    if(kh>4) li("lower",`Your KH of <b>${kh.toFixed(1)} dKH</b> is resisting the drop — dilute with RO water first (see KH advice) or CO₂-inject if planted.`,
+      "Carbonate buffer neutralizes added acid until it is depleted.");
+    if(hasBuffer) li("warn2",`Remove <b>Crushed Coral</b> from the stack — it actively pushes pH the other way.`);
+  } else { // need to RAISE pH
+    const rawShare = dPH/(0.45*Math.max(wcDamp,0.15))*(tankL/100)/filterL*100;
+    const share = clamp(rawShare,2,60);
+    const coralL = share/100*filterL;
+    li("raise",`Raise pH by <b>${dPH.toFixed(2)}</b>: allocate ≈ <b>${share.toFixed(0)}%</b> of the filter (~${coralL.toFixed(1)} L) to <b>Crushed Coral</b>${tPH>8.2?" (aragonite self-limits near pH 8.2 — use a rift-lake buffer salt beyond that)":rawShare>60?" — media alone won't get there; also dose KH (below)":""}, and aerate to off-gas CO₂.`,
+      "Dissolving aragonite adds carbonate; surface agitation removes acidic CO₂.");
+    if(hasAcid) li("warn2",`Remove <b>Peat Moss</b> from the stack — it actively pushes pH the other way.`);
+  }
+  // --- KH ---
+  if(Math.abs(dKH)<=0.5) li("ok",`✓ KH on target (${kh.toFixed(1)} dKH).`);
+  else if(dKH>0){
+    const grams=(3*tankL/100*dKH);
+    li("raise",`Raise KH by <b>${dKH.toFixed(1)} dKH</b>: dose ≈ <b>${grams.toFixed(1)} g</b> baking soda (NaHCO₃) across the week, or run crushed coral / aragonite in the filter.`,
+      "≈3 g NaHCO₃ per 100 L raises KH by 1 dKH. Dose gradually — max +1 dKH/day.");
+  } else {
+    const roPct = kh>0 ? clamp((1-tKH/kh)*100,0,100) : 0;
+    li("lower",`Lower KH by <b>${Math.abs(dKH).toFixed(1)} dKH</b>: remix water changes with ≈ <b>${roPct.toFixed(0)}% RO/DI</b> water${tapKH>tKH?" (your tap KH of "+tapKH.toFixed(1)+" dKH keeps refilling the buffer)":""}.`,
+      "RO dilution is the only stable way down; acids crash pH once KH nears 0.");
+  }
+  // --- GH ---
+  if(Math.abs(dGH)<=0.5) li("ok",`✓ GH on target (${gh.toFixed(1)} dGH).`);
+  else if(dGH>0){
+    const grams=(6.7*tankL/100*dGH);
+    li("raise",`Raise GH by <b>${dGH.toFixed(1)} dGH</b>: dose ≈ <b>${grams.toFixed(0)} g</b> of a Ca/Mg remineralizer (Equilibrium-class), or add crushed coral (raises KH too).`,
+      "≈6.7 g per 100 L raises GH by 1 dGH; shrimp and livebearers need the Ca²⁺ for shells/bones.");
+  } else {
+    const roPct = gh>0 ? clamp((1-tGH/gh)*100,0,100) : 0;
+    li("lower",`Lower GH by <b>${Math.abs(dGH).toFixed(1)} dGH</b>: remix water changes with ≈ <b>${roPct.toFixed(0)}% RO/DI</b> water${tapGH>tGH?" (tap GH "+tapGH.toFixed(1)+" dGH is the source)":""}; peat also strips some hardness.`,
+      "Ca²⁺/Mg²⁺ only leave via dilution or ion exchange.");
+  }
+  // --- cross-effects & hygiene ---
+  if(dKH>0.5 && dPH<-0.15) li("warn2","Conflicting targets: raising KH will also push pH up. Decide which matters more, or use RO + remineralizer to control them independently.");
+  if(wc<0.1 && (Math.abs(dKH)>0.5||Math.abs(dGH)>0.5)) li("warn2",`With only ${(wc*100).toFixed(0)}% weekly water changes, tap-water corrections act very slowly — raise the water-change volume to steer chemistry.`);
+  $("advice").innerHTML=out.join("");
+}
+
+/* ---------- chemistry chart (pH + KH + GH) ---------- */
+function drawChem(p0,p1,k0,k1,g0,g1){
+  const c=$("phchart"), dpr=devicePixelRatio||1;
+  const H = innerWidth<=760 ? 118 : 190;
+  c.width=c.clientWidth*dpr; c.height=H*dpr; c.style.height=H+"px";
+  const ctx=c.getContext("2d"); ctx.scale(dpr,dpr);
+  const W=c.clientWidth,pad=30;
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle="rgba(255,255,255,.07)";
+  for(let i=0;i<=4;i++){const y=pad+(H-2*pad)*i/4;ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(W-8,y);ctx.stroke();}
+  const phY=v=>pad+(H-2*pad)*(1-(v-4.5)/(9.2-4.5));
+  const hY =v=>pad+(H-2*pad)*(1-Math.min(v,25)/25);
+  const X=d=>pad+(W-pad-8)*d/30;
+  const curve=(a,b,d)=>a+(b-a)*(1-Math.exp(-d/10)); // exp approach, tau = 10 d
+  ctx.strokeStyle="#c9c9c4";ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(X(0),phY(p0));ctx.lineTo(X(30),phY(p0));ctx.stroke();ctx.setLineDash([]);
+  const plot=(a,b,yfn,col)=>{ctx.strokeStyle=col;ctx.lineWidth=2;ctx.beginPath();
+    for(let d=0;d<=30;d++){const y=yfn(curve(a,b,d));d?ctx.lineTo(X(d),y):ctx.moveTo(X(d),y);}ctx.stroke();ctx.lineWidth=1;};
+  plot(g0,g1,hY,"#be185d");
+  plot(k0,k1,hY,"#b45309");
+  plot(p0,p1,phY,"#2563eb");
+  ctx.fillStyle="#8a8a84";ctx.font="10px monospace";
+  ctx.fillText("pH 9",4,phY(9)+3);ctx.fillText("pH 7",4,phY(7)+3);ctx.fillText("pH 5",4,phY(5)+3);
+  ctx.textAlign="right";
+  ctx.fillText("20°d",W-2,hY(20)+3);ctx.fillText("10°d",W-2,hY(10)+3);
+  ctx.textAlign="left";
+  ctx.fillText("day 0",pad,H-6);ctx.fillText("day 30",W-52,H-6);
+  ctx.fillStyle="#2563eb";ctx.fillText("pH "+p1.toFixed(2),X(22),phY(p1)-6);
+  ctx.fillStyle="#b45309";ctx.fillText(k1.toFixed(1)+" KH",X(15),hY(k1)-6);
+  ctx.fillStyle="#be185d";ctx.fillText(g1.toFixed(1)+" GH",X(8),hY(g1)-6);
+}
+
+/* =====================================================================
+   COLONIZATION VISUALIZER
+   Each slot renders as a tray filled with a stylized drawing of the real
+   media (porous stones, sintered rings, HDPE wheels, coral chips, peat
+   fibres, carbon granules, foam blocks...). Bacterial colonies overlay it:
+   aerobic nitrifiers cluster on outer surfaces where oxygen reaches;
+   denitrifiers sit in the oxygen-depleted core per the media's anoxic
+   fraction. Fluidized K1 wheels tumble; everything else holds still while
+   colonies wobble, breathe and flash division rings. Flow streamlines and
+   drift particles pace with tank turnover.
+   ===================================================================== */
+const COL_AER="#16a34a", COL_ANOX="#e11d48", COL_FLOW="#94a3b8";
+const viz=(()=> {
+  const c=$("tank"); let ctx, W, H, blocks=[], streams=[], parts=[], turn=4, flowF=0.8, run=false, t0=0;
+  const reduced = false; // always animate per user preference
+  function rng(seed){ return ()=>{ seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff; }; }
+  function shade(hex,f){ // lighten (f>0) or darken (f<0) a #rrggbb
+    const n=parseInt(hex.slice(1),16), r=n>>16, g=n>>8&255, b=n&255;
+    const m=v=>Math.max(0,Math.min(255,Math.round(f>0?v+(255-v)*f:v*(1+f))));
+    return "rgb("+m(r)+","+m(g)+","+m(b)+")";
+  }
+  function size(){const dpr=devicePixelRatio||1;W=c.clientWidth;H=innerWidth<=760?150:230;
+    c.width=W*dpr;c.height=H*dpr;c.style.height=H+"px";ctx=c.getContext("2d");ctx.scale(dpr,dpr);}
+  function update(turnover, flowLPH){
+    size(); turn=turnover; flowF=clamp((flowLPH||800)/1000, 0.1, 5); t0=performance.now();
+    const filterL=+$("filterVol").value;
+    blocks=[];
+    const n=Math.max(stack.length,1);
+    stack.forEach((sl,i)=>{
+      const m=mediaById(sl.id);
+      const r=rng(1+i*7919+Math.round(sl.pct));
+      const cx=W*(i+0.5)/n, w=Math.min(W/n*0.78, 160);
+      const hFrac=0.30+0.58*Math.min(1, sl.pct/50);
+      const top=H*0.90-(H*0.66)*hFrac, bh=H*0.90-top;
+      // pack media items into the tray
+      const items=[];
+      if(!["block","pad","sponge"].includes(m.shape)){
+        const cell=m.shape==="granules"?9:m.shape==="fibers"?15:18;
+        const colsN=Math.max(2,Math.floor((w-8)/cell)), rowsN=Math.max(2,Math.floor((bh-8)/cell));
+        for(let ry=0;ry<rowsN;ry++)for(let rx=0;rx<colsN;rx++){
+          if(r()<0.12) continue; // gaps so it reads as loose media
+          items.push({x:cx-w/2+6+(rx+0.5)*(w-12)/colsN+(r()-.5)*4,
+                      y:top+5+(ry+0.5)*(bh-10)/rowsN+(r()-.5)*4,
+                      s:cell*0.5*(0.75+r()*0.5), a:r()*6.28, ph:r()*6.28});
+        }
+      }
+      // colonies: aerobic on surfaces, anoxic in the core
+      const vol=sl.pct/100*filterL;
+      const total=Math.min(150, Math.round(Math.sqrt(m.ssaBio*vol)*9)+6);
+      const nuclei=2+Math.min(4, Math.round(total/25));
+      const cols=[];
+      for(let nu=0;nu<nuclei;nu++){
+        const anox=r()<m.anoxic;
+        let nx,ny;
+        if(anox){ nx=cx+(r()-.5)*w*0.36; ny=top+bh*(0.35+r()*0.35); }
+        else{
+          const edge=r();
+          if(edge<0.4){ ny=top+2+r()*bh*0.16; nx=cx+(r()-.5)*w*0.85; }
+          else if(edge<0.7){ nx=cx-w/2+2+r()*w*0.14; ny=top+r()*bh*0.9; }
+          else{ nx=cx+w/2-2-r()*w*0.14; ny=top+r()*bh*0.9; }
+        }
+        const sat=Math.round(total/nuclei);
+        for(let d=0;d<sat;d++){
+          const a=r()*6.283, dist=Math.pow(r(),1.6)*(anox?w*0.13:w*0.10);
+          cols.push({x:nx+Math.cos(a)*dist, y:ny+Math.sin(a)*dist,
+            r:0.9+r()*1.9, anox, ph:r()*6.28, ph2:r()*6.28, wob:0.6+r()*1.2, delay:r()*600});
+        }
+      }
+      blocks.push({m, sl, cx, w, top, bh, items, cols, seed:i});
+    });
+    streams=[];
+    const rows=Math.min(9, 3+Math.round(turnover));
+    for(let k=0;k<rows;k++)
+      streams.push({y:H*(k+0.5)/rows, off:Math.random()*W, amp:2+Math.random()*3, sp:.5+Math.random()*.5});
+    parts=[];
+    const np=Math.min(70, 16+Math.round(turnover*6));
+    for(let k=0;k<np;k++) parts.push({x:Math.random()*W, y:Math.random()*H, s:.5+Math.random(), ph:Math.random()*6.28});
+    if(!run){run=true;loop();}
+    if(reduced) frame();
+  }
+  /* --- per-media item drawing --- */
+  function drawItem(shape, x, y, s, col, a, jig){
+    switch(shape){
+      case "stones":{ // irregular porous pebble
+        ctx.fillStyle=col; ctx.beginPath();
+        for(let k=0;k<7;k++){const th=a+k/7*6.283, rr=s*(0.72+0.38*Math.sin(th*3+a*5));
+          k?ctx.lineTo(x+Math.cos(th)*rr,y+Math.sin(th)*rr):ctx.moveTo(x+Math.cos(th)*rr,y+Math.sin(th)*rr);}
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle=shade(col,-0.35);
+        ctx.beginPath();ctx.arc(x+s*0.25,y-s*0.1,s*0.14,0,7);ctx.fill();
+        ctx.beginPath();ctx.arc(x-s*0.2,y+s*0.22,s*0.11,0,7);ctx.fill();
+        break;}
+      case "rings":{ // sintered ring with through-hole
+        ctx.strokeStyle=col; ctx.lineWidth=s*0.55;
+        ctx.beginPath();ctx.arc(x,y,s*0.62,0,7);ctx.stroke();
+        ctx.strokeStyle=shade(col,-0.25); ctx.lineWidth=1;
+        ctx.beginPath();ctx.arc(x,y,s*0.9,0,7);ctx.stroke();
+        break;}
+      case "wheels":{ // K1 wheel: rim + cross spokes, tumbling
+        const rot=a+jig*2.2;
+        ctx.strokeStyle=col; ctx.lineWidth=1.6;
+        ctx.beginPath();ctx.arc(x,y,s*0.75,0,7);ctx.stroke();
+        for(let k=0;k<4;k++){const th=rot+k*1.5708;
+          ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(th)*s*0.72,y+Math.sin(th)*s*0.72);ctx.stroke();}
+        break;}
+      case "chips":{ // angular coral fragment
+        ctx.fillStyle=col; ctx.beginPath();
+        ctx.moveTo(x+Math.cos(a)*s, y+Math.sin(a)*s);
+        ctx.lineTo(x+Math.cos(a+2.2)*s*0.8, y+Math.sin(a+2.2)*s*0.8);
+        ctx.lineTo(x+Math.cos(a+4.0)*s*0.95, y+Math.sin(a+4.0)*s*0.95);
+        ctx.lineTo(x+Math.cos(a+5.3)*s*0.6, y+Math.sin(a+5.3)*s*0.6);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle=shade(col,-0.2); ctx.lineWidth=.7; ctx.stroke();
+        break;}
+      case "fibers":{ // curved peat strand
+        ctx.strokeStyle=col; ctx.lineWidth=1.4;
+        ctx.beginPath(); ctx.moveTo(x-s, y+Math.sin(a)*3);
+        ctx.quadraticCurveTo(x, y+Math.cos(a)*s*0.8, x+s, y+Math.sin(a+1)*3);
+        ctx.stroke();
+        ctx.strokeStyle=shade(col,0.25); ctx.lineWidth=.8;
+        ctx.beginPath(); ctx.moveTo(x-s*0.7, y+2+Math.sin(a+2)*2);
+        ctx.quadraticCurveTo(x, y-s*0.5, x+s*0.8, y+1);
+        ctx.stroke();
+        break;}
+      case "granules":{ // small carbon grain
+        ctx.fillStyle=col;
+        ctx.save();ctx.translate(x,y);ctx.rotate(a);
+        ctx.fillRect(-s*0.55,-s*0.45,s*1.1,s*0.9);
+        ctx.restore();
+        ctx.fillStyle=shade(col,0.35);
+        ctx.fillRect(x-s*0.2,y-s*0.25,s*0.28,s*0.2);
+        break;}
+      case "balls":{ // bio-ball: sphere with radial ribs
+        ctx.strokeStyle=col; ctx.lineWidth=1.3;
+        ctx.beginPath();ctx.arc(x,y,s*0.8,0,7);ctx.stroke();
+        for(let k=0;k<6;k++){const th=a+k*1.047;
+          ctx.beginPath();ctx.moveTo(x+Math.cos(th)*s*0.25,y+Math.sin(th)*s*0.25);
+          ctx.lineTo(x+Math.cos(th)*s*0.75,y+Math.sin(th)*s*0.75);ctx.stroke();}
+        break;}
+    }
+  }
+  function drawBlockMedia(b, ts){
+    const m=b.m, col=m.real;
+    if(m.shape==="block"||m.shape==="pad"||m.shape==="sponge"){
+      // solid slab media
+      ctx.fillStyle=col; ctx.strokeStyle=shade(col,-0.18);
+      ctx.beginPath();ctx.roundRect(b.cx-b.w/2,b.top,b.w,b.bh,5);ctx.fill();ctx.stroke();
+      const r=rng(97+b.seed*131);
+      if(m.shape==="sponge"||m.shape==="block"){ // open-cell holes
+        ctx.fillStyle=shade(col,-0.3);
+        const hn=m.shape==="sponge"?Math.round(b.w*b.bh/160):Math.round(b.w*b.bh/220);
+        for(let k=0;k<hn;k++){
+          ctx.beginPath();ctx.arc(b.cx-b.w/2+5+r()*(b.w-10), b.top+5+r()*(b.bh-10), 1+r()*2.2, 0, 7);ctx.fill();
+        }
+      } else { // pad: fibrous horizontal texture
+        ctx.strokeStyle=shade(col,0.3); ctx.lineWidth=1;
+        for(let k=0;k<Math.round(b.bh/6);k++){
+          const y=b.top+4+k*6+r()*2;
+          ctx.beginPath();ctx.moveTo(b.cx-b.w/2+4,y);
+          ctx.bezierCurveTo(b.cx-b.w/6,y+2,b.cx+b.w/6,y-2,b.cx+b.w/2-4,y+1);ctx.stroke();
+        }
+      }
+    } else {
+      // tray + loose items
+      ctx.fillStyle="#f4f4f1"; ctx.strokeStyle="#dedad2";
+      ctx.beginPath();ctx.roundRect(b.cx-b.w/2,b.top,b.w,b.bh,5);ctx.fill();ctx.stroke();
+      ctx.save();
+      ctx.beginPath();ctx.roundRect(b.cx-b.w/2+1,b.top+1,b.w-2,b.bh-2,4);ctx.clip();
+      const fluid=m.fluidized&&!reduced;
+      const fr=0.6+flowF*0.9;   // tumble rate follows pump flow
+      b.items.forEach(it=>{
+        const jig=fluid?Math.sin(ts*2.2*fr+it.ph):0;
+        const dx=fluid?Math.sin(ts*1.6*fr+it.ph)*3:0;
+        const dy=fluid?Math.cos(ts*1.9*fr+it.ph*1.3)*4:0;
+        drawItem(m.shape, it.x+dx, it.y+dy, it.s, col, it.a, jig);
+      });
+      ctx.restore();
+    }
+  }
+  function frame(){
+    ctx.clearRect(0,0,W,H);
+    const t=performance.now(), ts=t/1000;
+    const v=(10+flowF*26);   // streamline speed follows pump flow (LPH)
+    ctx.strokeStyle="rgba(148,163,184,.45)"; ctx.lineWidth=1;
+    streams.forEach(sl=>{
+      const x0=((reduced?sl.off:sl.off+ts*v*sl.sp*10)%(W+80))-40;
+      ctx.beginPath();
+      for(let dx=0;dx<=46;dx+=6){
+        const x=x0+dx, y=sl.y+Math.sin((x)*0.05)*sl.amp;
+        dx?ctx.lineTo(x,y):ctx.moveTo(x,y);
+      }
+      ctx.stroke();
+    });
+    if(!reduced){
+      const pv=(0.2+flowF*0.55); // drift speed follows pump flow
+      ctx.fillStyle="rgba(100,116,139,.55)";
+      parts.forEach(p=>{
+        p.x+=pv*p.s; p.y+=Math.sin(ts*1.2+p.ph)*0.25;
+        if(p.x>W+4){p.x=-4; p.y=Math.random()*H;}
+        ctx.fillRect(p.x, p.y, 3*p.s, 1.2);
+      });
+    }
+    blocks.forEach(b=>{
+      drawBlockMedia(b, ts);
+      b.cols.forEach(k=>{
+        const age=t-t0-k.delay;
+        if(age<0) return;
+        const grow=Math.min(1, age/900);
+        const breathe=reduced?1:0.8+0.2*Math.sin(ts*2.1+k.ph);
+        const wx=reduced?0:Math.sin(ts*0.9+k.ph)*k.wob, wy=reduced?0:Math.cos(ts*0.7+k.ph2)*k.wob;
+        ctx.fillStyle=k.anox?COL_ANOX:COL_AER;
+        ctx.globalAlpha=(k.anox?0.7:0.8)*grow*breathe;
+        ctx.beginPath();ctx.arc(k.x+wx,k.y+wy,k.r*grow*breathe,0,7);ctx.fill();
+        if(!reduced){
+          const cyc=(ts*0.22+k.ph)%6.283;
+          if(cyc<0.5){
+            ctx.globalAlpha=(0.5-cyc)*0.9*grow;
+            ctx.strokeStyle=k.anox?COL_ANOX:COL_AER; ctx.lineWidth=1;
+            ctx.beginPath();ctx.arc(k.x+wx,k.y+wy,k.r+2+cyc*7,0,7);ctx.stroke();
+          }
+        }
+      });
+      ctx.globalAlpha=1;
+      ctx.fillStyle="#44443f"; ctx.font=(b.w<86?"600 9.5px ":"600 11px ")+"-apple-system,system-ui,sans-serif"; ctx.textAlign="center";
+      let lbl=b.m.name.split(" ")[0]+" · "+b.sl.pct.toFixed(0)+"%";
+      if(ctx.measureText(lbl).width>b.w+14) lbl=b.sl.pct.toFixed(0)+"%";
+      const half=ctx.measureText(lbl).width/2;
+      ctx.fillText(lbl, clamp(b.cx, half+4, W-half-4), b.top-6);
+    });
+    if(!blocks.length){ctx.fillStyle="#8a8a84";ctx.font="12px sans-serif";ctx.textAlign="center";
+      ctx.fillText("Equip media to begin colonization", W/2, H/2);}
+  }
+  function loop(){ frame(); if(!reduced) requestAnimationFrame(loop); }
+  addEventListener("resize",()=>{size();frame();});
+  size(); run=true; if(!reduced) loop(); else frame();
+  // paint the legend swatches from the exact canvas constants
+  $("legAer").style.background=COL_AER;
+  $("legAnox").style.background=COL_ANOX;
+  $("legFlow").style.background=COL_FLOW;
+  return {update};
+})();
+
+/* ---------- science modal ---------- */
+let lastFocus=null;
+function openSci(m){
+  lastFocus=document.activeElement;
+  const ft = v=> (v*M2FT).toFixed(v>1000?0:1);
+  $("sciCard").innerHTML = `
+    <button class="cls" id="sciClose">✕ close</button>
+    <h3>${m.name}</h3>
+    <div class="sec">Surface Area Metrics</div>
+    <table>
+      <tr><td>Total SSA (incl. micropores)</td><td>${m.ssaTotal.toLocaleString()} m²/L (${(+ft(m.ssaTotal)).toLocaleString()} ft²/L)</td></tr>
+      <tr><td>Effective bio-accessible SSA</td><td>${m.ssaBio} m²/L</td></tr>
+      <tr><td>Bio-accessibility ratio</td><td>${(m.ssaBio/m.ssaTotal*100).toFixed(m.ssaBio/m.ssaTotal<0.001?4:1)} %</td></tr>
+      <tr><td>Nitrification rate (biofilm, 26 °C)</td><td>${m.nitRate} g NH₃-N / m² / day</td></tr>
+      <tr><td>Anoxic pore fraction</td><td>${(m.anoxic*100).toFixed(0)} % → ${m.anoxic>=0.5?"strong":m.anoxic>0?"partial":"no"} denitrification</td></tr>
+      ${m.exhaustDays?`<tr><td>Working life</td><td>~${m.exhaustDays} days</td></tr>`:""}
+    </table>
+    <div class="sec">Chemical Drift (per L media / 100 L water, 30 d)</div>
+    <table>
+      <tr><td>pH shift</td><td>${m.phShift>0?"+":""}${m.phShift}</td></tr>
+      <tr><td>KH shift</td><td>${m.khShift>0?"+":""}${m.khShift} dKH (${m.khShift>0?"+":""}${(m.khShift*17.86).toFixed(0)} ppm CaCO₃)</td></tr>
+      <tr><td>GH shift</td><td>${m.ghShift>0?"+":""}${m.ghShift} dGH (${m.ghShift>0?"+":""}${(m.ghShift*17.86).toFixed(0)} ppm CaCO₃)</td></tr>
+    </table>
+    <div class="sec">Microbial &amp; Buffer Mechanics</div>
+    <p>${m.blurb}</p>
+    <div class="sec">Reference Basis</div>
+    <p style="font-size:11.5px;color:#71716b">${m.cite}</p>`;
+  $("modal").classList.add("open");
+  const btn=$("sciClose"); btn.onclick=closeSci; btn.focus();
+}
+function closeSci(){ $("modal").classList.remove("open"); if(lastFocus) lastFocus.focus(); }
+$("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeSci();});
+addEventListener("keydown",e=>{if(e.key==="Escape"&&$("modal").classList.contains("open"))closeSci();});
+
+/* ---------- presets ---------- */
+const PRESETS={
+  community:{stack:[["sponge",20],["ceramic",40],["matrix",30],["carbon",10]], cfg:{}},
+  blackwater:{stack:[["sponge",20],["matrix",45],["peat",35]], cfg:{tapKH:3,wc:20}},
+  cichlid:{stack:[["sponge",15],["k1",25],["marinepure",35],["coral",25]], cfg:{tapPH:7.8,tapKH:8,tapGH:12}},
+  lownitrate:{stack:[["sponge",15],["k1",15],["marinepure",40],["pumice",30]], cfg:{flow:600}}
+};
+document.querySelectorAll(".preset").forEach(b=>b.onclick=()=>{
+  const p=PRESETS[b.dataset.p];
+  stack=p.stack.map(([id,pct])=>({id,pct,locked:false}));
+  normalize();
+  Object.entries(p.cfg).forEach(([k,v])=>{const el=$(k); if(el){el.value=v; el.dispatchEvent(new Event("input"));}});
+  render(); save(); toast("Preset loaded: "+b.textContent);
+});
+$("btnEven").onclick=()=>{
+  stack.forEach(s=>{if(!s.locked)s.pct=1;});
+  normalize(); render(); save();
+};
+
+/* ---------- persistence / export ---------- */
+function save(){
+  try{
+    const cfg={};
+    ["tankVol","filterVol","flow","temp","tapPH","tapKH","tapGH","wc","tgtPH","tgtKH","tgtGH"].forEach(k=>cfg[k]=$(k).value);
+    cfg.stocking=$("stocking").value; cfg.units=$("units").value;
+    localStorage.setItem("medialab", JSON.stringify({stack,cfg,v:2}));
+  }catch(e){}
+}
+function load(){
+  try{
+    const d=JSON.parse(localStorage.getItem("medialab"));
+    if(!d || d.v!==2) return false;
+    stack=(d.stack||[]).filter(s=>mediaById(s.id)).slice(0,MAX_SLOTS)
+      .map(s=>({id:s.id,pct:+s.pct||0,locked:!!s.locked}));
+    normalize();
+    Object.entries(d.cfg||{}).forEach(([k,v])=>{const el=$(k);if(el)el.value=v;});
+    imperial=d.cfg&&d.cfg.units==="imperial";
+    return true;
+  }catch(e){ return false; }
+}
+$("btnCopy").onclick=async()=>{
+  const build={
+    stack:stack.map(s=>({media:mediaById(s.id).name, sharePct:+s.pct.toFixed(1)})),
+    tankL:+$("tankVol").value, filterL:+$("filterVol").value, flowLPH:+$("flow").value,
+    tempC:+$("temp").value, tap:{pH:+$("tapPH").value, dKH:+$("tapKH").value, dGH:+$("tapGH").value},
+    weeklyWaterChangePct:+$("wc").value
+  };
+  try{ await navigator.clipboard.writeText(JSON.stringify(build,null,2)); toast("Build copied to clipboard"); }
+  catch(e){ toast("Clipboard unavailable"); }
+};
+$("btnReset").onclick=()=>{
+  stack=[];
+  const defs={tankVol:200,filterVol:6,flow:800,temp:26,tapPH:7.4,tapKH:5,tapGH:8,wc:25,tgtPH:7.4,tgtKH:5,tgtGH:8};
+  Object.entries(defs).forEach(([k,v])=>$(k).value=v);
+  $("stocking").value="0.0025"; $("units").value="metric"; imperial=false;
+  try{localStorage.removeItem("medialab");}catch(e){}
+  render(); toast("Reset to defaults");
+};
+let toastT=null;
+function toast(msg){
+  const t=$("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2200);
+}
+
+/* ---------- config wiring ---------- */
+const CFG_FMT = [
+  ["tankVol","oTank",v=>imperial?(v*L2G).toFixed(0)+" gal":v+" L"],
+  ["filterVol","oFilter",v=>imperial?(v*L2G).toFixed(2)+" gal":v+" L"],
+  ["flow","oFlow",v=>imperial?(v*L2G).toFixed(0)+" GPH":v+" LPH"],
+  ["temp","oTemp",v=>imperial?(v*9/5+32).toFixed(1)+" °F":v.toFixed(1)+" °C"],
+  ["tapPH","oTapPH",v=>v.toFixed(1)],
+  ["tapKH","oTapKH",v=>v.toFixed(1)+" dKH ("+(v*17.86).toFixed(0)+" ppm)"],
+  ["tapGH","oTapGH",v=>v.toFixed(1)+" dGH ("+(v*17.86).toFixed(0)+" ppm)"],
+  ["wc","oWC",v=>v+" % / wk"],
+  ["tgtPH","oTgtPH",v=>v.toFixed(1)],
+  ["tgtKH","oTgtKH",v=>v.toFixed(1)+" dKH"],
+  ["tgtGH","oTgtGH",v=>v.toFixed(1)+" dGH"]
+];
+function refreshCfgOutputs(){
+  CFG_FMT.forEach(([id,out,fmt])=>{$(out).textContent=fmt(+$(id).value);paintRange($(id));});
+}
+CFG_FMT.forEach(([id])=>$(id).addEventListener("input",()=>{refreshCfgOutputs();refreshSlotOutputs();compute();save();}));
+$("fishSearch").addEventListener("input",()=>{if(lastFishCtx)updateFish(lastFishCtx);});
+$("fishCat").addEventListener("change",()=>{if(lastFishCtx)updateFish(lastFishCtx);});
+$("stocking").addEventListener("change",()=>{compute();save();});
+$("units").addEventListener("change",()=>{imperial=$("units").value==="imperial";render();save();});
+
+function render(){ renderSlots(); refreshCfgOutputs(); compute(); }
+
+/* ---------- mobile section nav (scroll-to + scroll spy) ---------- */
+const TABS=["stack","output","life","config"];
+function highlightTab(t){
+  document.querySelectorAll("#tabbar button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
+}
+document.querySelectorAll("#tabbar button").forEach(b=>b.onclick=()=>{
+  const el=document.querySelector(`[data-mtab="${b.dataset.t}"]`);
+  if(el) el.scrollIntoView({behavior:"smooth", block:"start"});
+  highlightTab(b.dataset.t);
+});
+let spyTick=false;
+addEventListener("scroll",()=>{
+  if(spyTick || innerWidth>760) return;
+  spyTick=true;
+  requestAnimationFrame(()=>{
+    spyTick=false;
+    let best="stack", bestTop=-1e9;
+    TABS.forEach(t=>{
+      const el=document.querySelector(`[data-mtab="${t}"]`);
+      if(!el) return;
+      const top=el.getBoundingClientRect().top;
+      if(top<=90 && top>bestTop){best=t;bestTop=top;}
+    });
+    highlightTab(best);
+  });
+},{passive:true});
+highlightTab("stack");
+
+/* ---------- install (add to home screen) ---------- */
+let deferredInstall=null;
+const isStandalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone===true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+addEventListener("beforeinstallprompt", e=>{
+  e.preventDefault(); deferredInstall=e;
+  if(!isStandalone) $("btnInstall").classList.add("show");
+});
+if(isIOS && !isStandalone) $("btnInstall").classList.add("show");
+$("btnInstall").addEventListener("click", async()=>{
+  if(deferredInstall){
+    deferredInstall.prompt();
+    const {outcome}=await deferredInstall.userChoice;
+    if(outcome==="accepted"){ $("btnInstall").classList.remove("show"); toast("Installed — check your home screen"); }
+    deferredInstall=null;
+    return;
+  }
+  // iOS Safari has no install API — show the two-tap walkthrough
+  $("sciCard").innerHTML=`
+    <button class="cls" id="sciClose">✕ close</button>
+    <h3>Add to Home Screen</h3>
+    <p>iOS doesn't let web apps install themselves — it takes two taps:</p>
+    <table>
+      <tr><td>1. Tap the <b>Share</b> button</td><td>the square-with-arrow icon in Safari\u2019s bottom bar</td></tr>
+      <tr><td>2. Choose <b>“Add to Home Screen”</b></td><td>in the share sheet list</td></tr>
+    </table>
+    <p>The app then launches full-screen with its own icon, works offline, and keeps your saved builds.</p>
+    ${isIOS?"":"<p style='color:#71716b;font-size:12px'>On Android/desktop Chrome, use the browser menu → “Install app” if no prompt appears.</p>"}`;
+  $("modal").classList.add("open");
+  $("sciClose").onclick=closeSci; $("sciClose").focus();
+});
+addEventListener("appinstalled", ()=>{ $("btnInstall").classList.remove("show"); toast("App installed"); });
+if("serviceWorker" in navigator && location.protocol==="https:"){
+  addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+
+/* ---------- boot ---------- */
+if(!load()){
+  stack=[{id:"sponge",pct:20,locked:false},{id:"matrix",pct:45,locked:false},{id:"k1",pct:35,locked:false}];
+  normalize();
+}
+$("units").value = imperial ? "imperial" : "metric";
+render();
+</script>
+</body>
+</html>
